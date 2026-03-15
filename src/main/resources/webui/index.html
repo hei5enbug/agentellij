@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentellIJ</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header id="toolbar">
+            <div class="toolbar-left">
+                <select id="session-select" title="Switch session">
+                    <option value="">No sessions</option>
+                </select>
+                <button id="btn-new-session" title="New session">+</button>
+            </div>
+            <div class="toolbar-right">
+                <span id="connection-status" class="status-dot" title="Disconnected"></span>
+            </div>
+        </header>
+
+        <main id="messages">
+            <div id="messages-list"></div>
+            <div id="empty-state" class="empty-state">
+                <p>Start a conversation with your AI agent.</p>
+            </div>
+        </main>
+
+        <div id="context-bar" class="context-bar hidden">
+            <div class="context-bar-label">Context:</div>
+            <div id="context-files" class="context-files"></div>
+        </div>
+
+        <div id="config-bar" class="config-bar">
+            <div class="dropdown searchable" id="model-dropdown">
+                <button class="dropdown-trigger" data-label="Model"></button>
+                <div class="dropdown-menu">
+                    <div class="dropdown-search-wrap">
+                        <input type="text" class="dropdown-search" placeholder="Search models..." autocomplete="off" spellcheck="false" />
+                    </div>
+                    <div class="dropdown-items"></div>
+                </div>
+            </div>
+            <div class="dropdown" id="variant-dropdown">
+                <button class="dropdown-trigger" data-label="Variant"></button>
+                <div class="dropdown-menu"></div>
+            </div>
+            <div class="dropdown" id="agent-dropdown">
+                <button class="dropdown-trigger" data-label="Agent"></button>
+                <div class="dropdown-menu"></div>
+            </div>
+        </div>
+
+        <footer id="input-area">
+            <div class="input-wrapper">
+                <textarea
+                    id="prompt-input"
+                    placeholder="Ask anything..."
+                    rows="1"
+                    autocomplete="off"
+                    spellcheck="true"
+                ></textarea>
+                <div class="input-actions">
+                    <button id="btn-send" class="btn-primary" title="Send (⌘+Enter)">Send</button>
+                    <button id="btn-abort" class="btn-danger hidden" title="Stop generation">Stop</button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

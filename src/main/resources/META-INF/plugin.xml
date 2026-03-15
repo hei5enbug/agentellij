@@ -1,0 +1,65 @@
+<idea-plugin>
+    <id>com.agentellij</id>
+    <name>AgentellIJ</name>
+    <vendor email="agentellij@example.com" url="https://github.com/agentellij">AgentellIJ</vendor>
+    <description>Integrates AI coding agents (OpenCode, Claude Code, Codex, and more) into IntelliJ IDEA with JCEF-based chat UI, context shortcuts, and editor synchronization.</description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="AgentellIJ"
+                    factoryClass="com.agentellij.ui.ChatToolWindowFactory"
+                    anchor="right"
+                    canCloseContent="true"
+                    icon="/icons/toolWindow.svg"/>
+        <applicationConfigurable
+                instance="com.agentellij.settings.AgentellIJConfigurable"
+                id="com.agentellij.settings"
+                parentId="tools"
+                displayName="AgentellIJ"/>
+        <applicationService
+                serviceImplementation="com.agentellij.settings.AgentellIJSettings"/>
+    </extensions>
+
+    <actions>
+        <!-- Editor: Add current file to context -->
+        <action id="com.agentellij.AddFileToContext"
+                class="com.agentellij.actions.AddFileToContextAction"
+                text="AgentellIJ: Add File to Context"
+                description="Add the current file to agent context">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl COMMA"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta BACK_SLASH"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta BACK_SLASH"/>
+        </action>
+
+        <!-- Editor: Add selected lines to context -->
+        <action id="com.agentellij.AddLinesToContext"
+                class="com.agentellij.actions.AddLinesToContextAction"
+                text="AgentellIJ: Add Lines to Context"
+                description="Add selected lines to agent context">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift COMMA"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift BACK_SLASH"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift BACK_SLASH"/>
+        </action>
+
+        <!-- Project tree: Add file to context -->
+        <action id="com.agentellij.AddFromProjectTree"
+                class="com.agentellij.actions.AddFromProjectTreeAction"
+                text="AgentellIJ: Add to Context"
+                description="Add selected file(s) to agent context">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+
+        <!-- Project tree: Paste path -->
+        <action id="com.agentellij.PastePath"
+                class="com.agentellij.actions.PastePathAction"
+                text="AgentellIJ: Paste Path"
+                description="Paste file path into agent prompt">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
