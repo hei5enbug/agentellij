@@ -269,29 +269,18 @@ async function loadConfig() {
     state.allModels = models;
     state.agents = Array.isArray(agents) ? agents : [];
 
-    let defaultModelKey = '';
-    if (config?.model) {
-      defaultModelKey = config.model;
-    } else if (providerData?.default) {
-      const firstProvider = Object.keys(providerData.default)[0];
-      if (firstProvider) defaultModelKey = `${firstProvider}/${providerData.default[firstProvider]}`;
-    }
-
     if (models.length > 0) {
-      const match = models.find((m) => `${m.providerID}/${m.modelID}` === defaultModelKey);
-      const selected = match || models[0];
-      state.selectedModel = { providerID: selected.providerID, modelID: selected.modelID };
-      state.currentModelVariants = selected.variants;
-      state.selectedVariant = selected.variants[0] || '';
-      ui.renderModelList(models, `${selected.providerID}/${selected.modelID}`);
-      ui.renderVariantList(selected.variants, state.selectedVariant);
+      ui.renderModelList(models, '');
+      ui.renderVariantList([], '');
     }
 
     const defaultAgent = config?.default_agent || 'build';
     const primaryAgents = state.agents.filter((a) => a.mode !== 'subagent');
     if (primaryAgents.length > 0) {
-      state.selectedAgent = primaryAgents.find((a) => a.name === defaultAgent)?.name || primaryAgents[0].name;
+      const agentObj = primaryAgents.find((a) => a.name === defaultAgent) || primaryAgents[0];
+      state.selectedAgent = agentObj.name;
       ui.renderAgentList(primaryAgents, state.selectedAgent);
+      applyAgentDefaults(agentObj, models);
     }
   } catch (_) {}
 }
@@ -313,6 +302,28 @@ function handleVariantChange(value) {
 
 function handleAgentChange(value) {
   state.selectedAgent = value;
+  const agentObj = state.agents.find((a) => a.name === value);
+  if (agentObj) applyAgentDefaults(agentObj, state.allModels);
+}
+
+function applyAgentDefaults(agentObj, models) {
+  const agentModel = agentObj.model;
+  if (!agentModel?.providerID || !agentModel?.modelID) return;
+
+  const modelKey = `${agentModel.providerID}/${agentModel.modelID}`;
+  const match = models.find((m) => `${m.providerID}/${m.modelID}` === modelKey);
+
+  if (match) {
+    state.selectedModel = { providerID: match.providerID, modelID: match.modelID };
+    state.currentModelVariants = match.variants;
+    state.selectedVariant = agentObj.variant || match.variants[0] || '';
+    ui.renderModelList(models, modelKey);
+    ui.renderVariantList(match.variants, state.selectedVariant);
+  } else {
+    state.selectedModel = { providerID: agentModel.providerID, modelID: agentModel.modelID };
+    state.selectedVariant = agentObj.variant || '';
+    ui.renderVariantList(agentObj.variant ? [agentObj.variant] : [], state.selectedVariant);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

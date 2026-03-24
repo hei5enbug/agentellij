@@ -125,27 +125,37 @@ html, body {
 .empty-state.hidden { display: none; }
 
 .message {
-    border-radius: var(--radius);
     padding: 10px 12px;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
 
 .message.user {
-    background: var(--bg-surface);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+    border-radius: var(--radius);
+    max-width: 85%;
+    margin-left: auto;
 }
 
 .message.assistant {
     background: transparent;
+    border-radius: var(--radius);
 }
 
 .message-role {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-muted);
     margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.message.user .message-role {
+    color: var(--accent);
+}
+
+.message.assistant .message-role {
+    color: var(--text-muted);
 }
 
 .message-content {
@@ -447,7 +457,7 @@ html, body {
 .input-wrapper {
     display: flex;
     gap: 6px;
-    align-items: flex-end;
+    align-items: stretch;
 }
 
 #prompt-input {
@@ -463,6 +473,7 @@ html, body {
     line-height: 1.5;
     resize: none;
     outline: none;
+    overflow-y: hidden;
 }
 
 #prompt-input:focus {

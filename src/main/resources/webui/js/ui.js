@@ -36,8 +36,10 @@ export class ChatUI {
     this.promptInput.addEventListener('input', () => {
       this.promptInput.style.height = 'auto';
       const lineHeight = parseFloat(getComputedStyle(this.promptInput).lineHeight) || 20;
-      const maxHeight = lineHeight * 20;
-      this.promptInput.style.height = Math.min(this.promptInput.scrollHeight, maxHeight) + 'px';
+      const maxHeight = lineHeight * 10;
+      const newHeight = Math.min(this.promptInput.scrollHeight, maxHeight);
+      this.promptInput.style.height = newHeight + 'px';
+      this.promptInput.style.overflowY = this.promptInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
     });
 
     this.btnSend.addEventListener('click', () => this._callbacks.onSend?.());
