@@ -51,7 +51,7 @@ export class ChatUI {
     this._initDropdown(this.agentDropdown, (val) => this._callbacks.onAgentChange?.(val));
 
     document.addEventListener('click', (e) => {
-      container.querySelectorAll('.dropdown.open').forEach((dd) => {
+      this.container.querySelectorAll('.dropdown.open').forEach((dd) => {
         if (!dd.contains(e.target)) dd.classList.remove('open');
       });
     });
