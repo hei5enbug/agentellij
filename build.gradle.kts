@@ -27,7 +27,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.1")
 
     intellijPlatform {
-        intellijIdeaCommunity("2025.1")
+        intellijIdea("2025.3.4")
         bundledPlugin("com.intellij.java")
         bundledPlugin("org.jetbrains.plugins.terminal")
 
