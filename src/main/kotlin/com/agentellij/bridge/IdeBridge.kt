@@ -17,7 +17,7 @@ import com.agentellij.util.closeQuietly
 import com.agentellij.util.runQuietly
 
 object IdeBridge {
-    private val LOG = Logger.getInstance(IdeBridge::class.java)
+    private val LOG by lazy { Logger.getInstance(IdeBridge::class.java) }
     private val mapper = jacksonObjectMapper()
 
     private var server: HttpServer? = null

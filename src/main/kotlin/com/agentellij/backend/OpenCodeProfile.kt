@@ -5,7 +5,7 @@ import java.io.File
 /**
  * Agent profile for [OpenCode](https://github.com/sst/opencode).
  *
- * Launch: `opencode serve [args...]`
+ * Launch: `opencode serve \[args...]`
  * State:  `~/.local/state/opencode/` (kv.json, model.json, settings.json)
  */
 class OpenCodeProfile : AgentProfile {
