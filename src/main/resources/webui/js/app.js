@@ -7,7 +7,7 @@ const state = {
   currentSessionId: null,
   messages: new Map(),
   isStreaming: false,
-  contextFiles: [],
+
   openFiles: [],
   currentFile: null,
   providers: [],
@@ -58,6 +58,7 @@ function wireUICallbacks() {
   ui.onModelChange(handleModelChange);
   ui.onVariantChange(handleVariantChange);
   ui.onAgentChange(handleAgentChange);
+
 }
 
 function connectStreams() {
@@ -102,17 +103,7 @@ function connectStreams() {
       bridge.connect({
         onConnected: () => {},
         onInsertPaths: (paths) => {
-          paths.forEach((p) => {
-            if (!state.contextFiles.includes(p)) {
-              state.contextFiles.push(p);
-            }
-          });
-          ui.showContextFiles(state.contextFiles);
-        },
-        onPastePath: (path) => {
-          const current = ui.getInputText();
-          const sep = current && !current.endsWith(' ') ? ' ' : '';
-          ui.promptInput.value = current + sep + path;
+          paths.forEach((p) => ui.insertChipAtCursor(p));
           ui.focusInput();
         },
         onUpdateOpenedFiles: (openedFiles, currentFile) => {
@@ -144,12 +135,6 @@ async function handleSend() {
 
   try {
     const parts = [{ type: 'text', text }];
-    if (state.contextFiles.length > 0) {
-      const contextText = state.contextFiles.map((f) => `@${f}`).join(' ');
-      parts[0].text = `${contextText}\n\n${text}`;
-      state.contextFiles = [];
-      ui.showContextFiles([]);
-    }
     const config = {};
     if (state.selectedModel) config.model = state.selectedModel;
     if (state.selectedVariant) config.variant = state.selectedVariant;
@@ -236,9 +221,8 @@ async function loadSessions() {
   state.sessions = Array.isArray(sessions) ? sessions : [];
 
   if (state.sessions.length > 0) {
-    state.currentSessionId = state.sessions[0].id;
-    ui.renderSessionList(state.sessions, state.currentSessionId);
-    await handleSessionSwitch(state.currentSessionId);
+    ui.renderSessionList(state.sessions, state.sessions[0].id);
+    await handleSessionSwitch(state.sessions[0].id);
   } else {
     ui.renderSessionList([], null);
   }

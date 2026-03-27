@@ -10,8 +10,6 @@ export class ChatUI {
     this.btnSend = container.querySelector('#btn-send');
     this.btnAbort = container.querySelector('#btn-abort');
     this.promptInput = container.querySelector('#prompt-input');
-    this.contextBar = container.querySelector('#context-bar');
-    this.contextFiles = container.querySelector('#context-files');
     this.statusDot = container.querySelector('#connection-status');
     this.messagesContainer = container.querySelector('#messages');
     this.modelDropdown = container.querySelector('#model-dropdown');
@@ -30,6 +28,9 @@ export class ChatUI {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         this._callbacks.onSend?.();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
       }
     });
 
@@ -395,23 +396,32 @@ export class ChatUI {
     if (statusEl) statusEl.textContent = statusIcon[status] || '\u23F3';
   }
 
-  showContextFiles(files) {
-    if (!files || files.length === 0) {
-      this.contextBar.classList.add('hidden');
-      return;
+  insertChipAtCursor(path) {
+    const chip = document.createElement('span');
+    chip.className = 'context-chip';
+    chip.contentEditable = 'false';
+    chip.dataset.path = path;
+    chip.title = path;
+    const name = path.split('/').pop();
+    chip.innerHTML = `${this._escapeHtml(name)}<span class="context-chip-remove">&times;</span>`;
+    chip.querySelector('.context-chip-remove').addEventListener('click', () => chip.remove());
+
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && this.promptInput.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(chip);
+      const space = document.createTextNode('\u00A0');
+      chip.after(space);
+      range.setStartAfter(space);
+      range.setEndAfter(space);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      this.promptInput.appendChild(chip);
+      const space = document.createTextNode('\u00A0');
+      this.promptInput.appendChild(space);
     }
-    this.contextBar.classList.remove('hidden');
-    this.contextFiles.innerHTML = '';
-    files.forEach((f) => {
-      const el = document.createElement('span');
-      el.className = 'context-file';
-      const name = f.split('/').pop();
-      el.innerHTML = `${this._escapeHtml(name)} <span class="context-file-remove" data-path="${this._escapeHtml(f)}">\u00D7</span>`;
-      el.querySelector('.context-file-remove').addEventListener('click', () => {
-        this._callbacks.onRemoveContextFile?.(f);
-      });
-      this.contextFiles.appendChild(el);
-    });
   }
 
   showConnectionStatus(status) {
@@ -437,12 +447,33 @@ export class ChatUI {
     });
   }
 
-  getInputText()       { return this.promptInput.value; }
-  clearInput()         { this.promptInput.value = ''; this.promptInput.style.height = 'auto'; }
-  focusInput()         { this.promptInput.focus(); }
+  getInputText() {
+    let text = '';
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if (node.classList?.contains('context-chip')) {
+        text += `@${node.dataset.path}`;
+      } else if (node.tagName === 'BR') {
+        text += '\n';
+      } else {
+        node.childNodes.forEach(walk);
+        if (node.tagName === 'DIV' || node.tagName === 'P') text += '\n';
+      }
+    };
+    this.promptInput.childNodes.forEach(walk);
+    return text;
+  }
+
+  clearInput() {
+    this.promptInput.innerHTML = '';
+    this.promptInput.style.height = 'auto';
+  }
+
+  focusInput() { this.promptInput.focus(); }
 
   setInputEnabled(enabled) {
-    this.promptInput.disabled = !enabled;
+    this.promptInput.contentEditable = enabled ? 'true' : 'false';
     this.btnSend.disabled = !enabled;
   }
 

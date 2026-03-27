@@ -39,9 +39,6 @@ export class IdeBridgeClient {
       case 'insertPaths':
         h.onInsertPaths?.(payload.paths || []);
         break;
-      case 'pastePath':
-        h.onPastePath?.(payload.path || '');
-        break;
       case 'updateOpenedFiles':
         h.onUpdateOpenedFiles?.(payload.openedFiles || [], payload.currentFile);
         break;

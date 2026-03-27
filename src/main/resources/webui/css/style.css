@@ -243,49 +243,29 @@ html, body {
 .tool-call.completed { border-left-color: var(--success); }
 .tool-call.error    { border-left-color: var(--danger); }
 
-.context-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    flex-shrink: 0;
-    overflow-x: auto;
-}
-
-.context-bar.hidden { display: none; }
-
-.context-bar-label {
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-
-.context-files {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-
-.context-file {
+.context-chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
-    background: var(--bg-surface);
-    border-radius: 10px;
-    font-size: 11px;
-    color: var(--text-secondary);
+    gap: 4px;
+    padding: 1px 8px;
+    margin: 0 2px;
+    background: color-mix(in srgb, var(--accent) 15%, var(--bg-primary));
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--accent);
     white-space: nowrap;
+    vertical-align: baseline;
+    user-select: none;
 }
 
-.context-file-remove {
+.context-chip-remove {
     cursor: pointer;
     color: var(--text-muted);
     font-size: 10px;
+    line-height: 1;
 }
-.context-file-remove:hover { color: var(--danger); }
+.context-chip-remove:hover { color: var(--danger); }
 
 .config-bar {
     display: flex;
@@ -460,28 +440,41 @@ html, body {
     align-items: stretch;
 }
 
+.input-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.input-box:focus-within {
+    border-color: var(--accent);
+}
+
 #prompt-input {
     flex: 1;
     min-height: 32px;
     padding: 6px 10px;
-    background: var(--bg-surface);
+    background: transparent;
     color: var(--text-primary);
-    border: 1px solid var(--border);
+    border: none;
     border-radius: var(--radius);
     font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.5;
-    resize: none;
     outline: none;
     overflow-y: hidden;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
 }
 
-#prompt-input:focus {
-    border-color: var(--accent);
-}
-
-#prompt-input::placeholder {
+#prompt-input:empty::before {
+    content: attr(data-placeholder);
     color: var(--text-muted);
+    pointer-events: none;
 }
 
 .input-actions {

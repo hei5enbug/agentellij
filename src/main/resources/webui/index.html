@@ -27,11 +27,6 @@
             </div>
         </main>
 
-        <div id="context-bar" class="context-bar hidden">
-            <div class="context-bar-label">Context:</div>
-            <div id="context-files" class="context-files"></div>
-        </div>
-
         <div id="config-bar" class="config-bar">
             <div class="dropdown searchable" id="model-dropdown">
                 <button class="dropdown-trigger" data-label="Model"></button>
@@ -54,13 +49,12 @@
 
         <footer id="input-area">
             <div class="input-wrapper">
-                <textarea
-                    id="prompt-input"
-                    placeholder="Ask anything..."
-                    rows="1"
-                    autocomplete="off"
-                    spellcheck="true"
-                ></textarea>
+                <div class="input-box">
+                    <div id="prompt-input"
+                         contenteditable="true"
+                         data-placeholder="Ask anything..."
+                         spellcheck="true"></div>
+                </div>
                 <div class="input-actions">
                     <button id="btn-send" class="btn-primary" title="Send (⌘+Enter)">Send</button>
                     <button id="btn-abort" class="btn-danger hidden" title="Stop generation">Stop</button>
