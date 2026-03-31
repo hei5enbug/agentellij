@@ -10,12 +10,19 @@
     <div id="app">
         <header id="toolbar">
             <div class="toolbar-left">
-                <select id="session-select" title="Switch session">
-                    <option value="">No sessions</option>
-                </select>
+                <div class="session-dropdown" id="session-dropdown">
+                    <button class="session-trigger" id="session-trigger" title="Switch session">No sessions</button>
+                    <div class="session-panel" id="session-panel">
+                        <div class="session-list" id="session-list"></div>
+                        <div class="session-bulk-bar hidden" id="session-bulk-bar">
+                            <button class="session-bulk-delete" id="session-bulk-delete">Delete</button>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-new-session" title="New session">+</button>
             </div>
             <div class="toolbar-right">
+                <span id="context-usage" class="context-usage" title="Context window usage">— / —</span>
                 <span id="connection-status" class="status-dot" title="Disconnected"></span>
             </div>
         </header>
@@ -24,6 +31,7 @@
             <div id="messages-list"></div>
             <div id="empty-state" class="empty-state">
                 <p>Start a conversation with your AI agent.</p>
+                <p class="shortcut-hint">&#8984;+Enter to send</p>
             </div>
         </main>
 

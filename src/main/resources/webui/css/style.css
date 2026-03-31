@@ -1,3 +1,8 @@
+/* ==============================================
+   AgentellIJ — Refined Dark Theme
+   Tokyo Night inspired · Smooth transitions · IDE-native feel
+   ============================================== */
+
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -5,24 +10,53 @@
 }
 
 :root {
-    --bg-primary: #1e1e2e;
-    --bg-secondary: #181825;
-    --bg-surface: #313244;
-    --bg-hover: #45475a;
-    --text-primary: #cdd6f4;
-    --text-secondary: #a6adc8;
-    --text-muted: #6c7086;
-    --accent: #89b4fa;
-    --accent-hover: #74c7ec;
-    --danger: #f38ba8;
-    --success: #a6e3a1;
-    --warning: #f9e2af;
-    --border: #45475a;
+    /* ---- Backgrounds ---- */
+    --bg-primary: #1a1b26;
+    --bg-secondary: #16161e;
+    --bg-surface: #24283b;
+    --bg-hover: #2f3349;
+
+    /* ---- Text ---- */
+    --text-primary: #c0caf5;
+    --text-secondary: #9aa5ce;
+    --text-muted: #565f89;
+
+    /* ---- Accent ---- */
+    --accent: #7aa2f7;
+    --accent-hover: #7dcfff;
+    --accent-dim: rgba(122, 162, 247, 0.10);
+
+    /* ---- Semantic ---- */
+    --danger: #f7768e;
+    --success: #9ece6a;
+    --warning: #e0af68;
+
+    /* ---- Border & Shadow ---- */
+    --border: #292e42;
+    --border-focus: rgba(122, 162, 247, 0.45);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.18);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+
+    /* ---- Typography ---- */
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-    --radius: 6px;
-    --radius-sm: 4px;
+
+    /* ---- Radius ---- */
+    --radius: 8px;
+    --radius-sm: 5px;
+    --radius-xs: 3px;
+
+    /* ---- Motion ---- */
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-fast: 120ms;
+    --duration-base: 180ms;
 }
+
+
+/* ==============================================
+   Base
+   ============================================== */
 
 html, body {
     height: 100%;
@@ -32,6 +66,7 @@ html, body {
     font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
 #app {
@@ -40,14 +75,20 @@ html, body {
     height: 100vh;
 }
 
+
+/* ==============================================
+   Toolbar
+   ============================================== */
+
 #toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
+    gap: 8px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    height: 38px;
 }
 
 .toolbar-left {
@@ -58,80 +99,342 @@ html, body {
     min-width: 0;
 }
 
-#session-select {
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+
+/* ==============================================
+   Session Dropdown
+   ============================================== */
+
+.session-dropdown {
+    position: relative;
     flex: 1;
     min-width: 0;
-    padding: 4px 8px;
+}
+
+.session-trigger {
+    width: 100%;
+    height: 26px;
+    padding: 0 24px 0 8px;
     background: var(--bg-surface);
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 12px;
+    line-height: 24px;
     cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    outline: none;
+    position: relative;
+    transition: border-color var(--duration-fast) var(--ease),
+                background-color var(--duration-fast) var(--ease);
 }
 
-#btn-new-session {
-    padding: 4px 10px;
+.session-trigger::after {
+    content: '\25BE';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--text-muted);
+    transition: color var(--duration-fast) var(--ease);
+}
+
+.session-trigger:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-hover);
+}
+
+.session-dropdown.open .session-trigger {
+    border-color: var(--accent);
+}
+
+.session-dropdown.open .session-trigger::after {
+    color: var(--accent);
+}
+
+/* ---- Session Panel (animated) ---- */
+
+.session-panel {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
     background: var(--bg-surface);
-    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+    transition: opacity var(--duration-base) var(--ease),
+                transform var(--duration-base) var(--ease),
+                visibility var(--duration-base);
+}
+
+.session-dropdown.open .session-panel {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.session-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    gap: 8px;
+    transition: background-color var(--duration-fast) var(--ease);
+}
+
+.session-item-check {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.session-item:hover {
+    background: var(--bg-hover);
+}
+
+.session-item.active {
+    background: var(--accent);
+}
+
+.session-item-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    transition: color var(--duration-fast) var(--ease);
+}
+
+.session-item.active .session-item-title {
+    color: var(--bg-primary);
+    font-weight: 500;
+}
+
+.session-item-delete {
+    opacity: 0;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: var(--radius-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity var(--duration-fast) var(--ease),
+                background-color var(--duration-fast) var(--ease),
+                color var(--duration-fast) var(--ease);
+}
+
+.session-item:hover .session-item-delete {
+    opacity: 1;
+}
+
+.session-item-delete:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.session-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* ---- Bulk Delete Bar ---- */
+
+.session-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px 10px;
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+    z-index: 1;
+}
+
+.session-bulk-bar.hidden { display: none; }
+
+.session-bulk-delete {
+    width: 100%;
+    padding: 6px 12px;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity var(--duration-fast) var(--ease);
+}
+
+.session-bulk-delete:hover { opacity: 0.85; }
+
+.session-panel::-webkit-scrollbar { width: 4px; }
+.session-panel::-webkit-scrollbar-track { background: transparent; }
+.session-panel::-webkit-scrollbar-thumb {
+    background: var(--bg-hover);
+    border-radius: 2px;
+}
+
+
+/* ==============================================
+   New Session Button
+   ============================================== */
+
+#btn-new-session {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
+    font-size: 15px;
+    line-height: 24px;
+    text-align: center;
+    transition: background-color var(--duration-fast) var(--ease),
+                color var(--duration-fast) var(--ease),
+                border-color var(--duration-fast) var(--ease);
 }
 
-#btn-new-session:hover { background: var(--bg-hover); }
+#btn-new-session:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+
+/* ==============================================
+   Context Usage & Status
+   ============================================== */
+
+.context-usage {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    line-height: 26px;
+    transition: color var(--duration-base) var(--ease);
+}
+
+.context-usage.warning { color: var(--warning); }
+.context-usage.danger  { color: var(--danger); }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--text-muted);
     display: inline-block;
+    flex-shrink: 0;
+    transition: background-color var(--duration-base) var(--ease);
 }
-.status-dot.connected    { background: var(--success); }
-.status-dot.connecting   { background: var(--warning); animation: pulse 1.5s infinite; }
-.status-dot.error        { background: var(--danger); }
+
+.status-dot.connected  { background: var(--success); }
+.status-dot.connecting {
+    background: var(--warning);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+.status-dot.error { background: var(--danger); }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    50% { opacity: 0.3; }
 }
+
+
+/* ==============================================
+   Messages Area
+   ============================================== */
 
 #messages {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px;
+    padding: 14px;
 }
 
 #messages-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
+
+
+/* ==============================================
+   Empty State
+   ============================================== */
 
 .empty-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
     color: var(--text-muted);
     text-align: center;
-    padding: 20px;
+    padding: 24px;
+    gap: 6px;
+}
+
+.empty-state p {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.empty-state .shortcut-hint {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 2px;
 }
 
 .empty-state.hidden { display: none; }
 
+
+/* ==============================================
+   Message Cards
+   ============================================== */
+
 .message {
-    padding: 10px 12px;
+    padding: 10px 14px;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
 
 .message.user {
-    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+    background: var(--accent-dim);
+    border: 1px solid rgba(122, 162, 247, 0.06);
     border-radius: var(--radius);
     max-width: 85%;
     margin-left: auto;
@@ -143,11 +446,11 @@ html, body {
 }
 
 .message-role {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
 }
 
 .message.user .message-role {
@@ -158,27 +461,51 @@ html, body {
     color: var(--text-muted);
 }
 
+
+/* ==============================================
+   Message Content
+   ============================================== */
+
 .message-content {
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.65;
 }
 
 .message-content p { margin-bottom: 8px; }
 .message-content p:last-child { margin-bottom: 0; }
-.message-content ul, .message-content ol { padding-left: 20px; margin-bottom: 8px; }
-.message-content a { color: var(--accent); text-decoration: none; }
-.message-content a:hover { text-decoration: underline; }
+
+.message-content ul,
+.message-content ol {
+    padding-left: 20px;
+    margin-bottom: 8px;
+}
+
+.message-content a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease);
+}
+
+.message-content a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+
+/* ==============================================
+   Code Blocks
+   ============================================== */
 
 .message-content pre {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    padding: 12px 14px;
     margin: 8px 0;
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.55;
 }
 
 .message-content code {
@@ -188,21 +515,23 @@ html, body {
 
 .message-content :not(pre) > code {
     background: var(--bg-surface);
-    padding: 1px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    font-size: 0.92em;
 }
 
 .code-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 12px;
+    padding: 5px 14px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-bottom: none;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     font-size: 11px;
     color: var(--text-muted);
+    font-family: var(--font-mono);
 }
 
 .code-header + pre {
@@ -218,16 +547,29 @@ html, body {
     cursor: pointer;
     font-size: 11px;
     padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    transition: color var(--duration-fast) var(--ease),
+                background-color var(--duration-fast) var(--ease);
 }
-.btn-copy:hover { color: var(--text-primary); }
+
+.btn-copy:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+
+/* ==============================================
+   Tool Call Cards
+   ============================================== */
 
 .tool-call {
-    border-left: 3px solid var(--accent);
+    border-left: 2px solid var(--accent);
     background: var(--bg-secondary);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     padding: 8px 12px;
     margin: 8px 0;
     font-size: 12px;
+    transition: border-color var(--duration-base) var(--ease);
 }
 
 .tool-call-header {
@@ -237,11 +579,20 @@ html, body {
     font-weight: 500;
 }
 
-.tool-call-status { font-size: 14px; }
-.tool-call.pending  { border-left-color: var(--text-muted); }
-.tool-call.running  { border-left-color: var(--warning); }
+.tool-call-status {
+    font-size: 13px;
+    line-height: 1;
+}
+
+.tool-call.pending   { border-left-color: var(--text-muted); }
+.tool-call.running   { border-left-color: var(--warning); }
 .tool-call.completed { border-left-color: var(--success); }
-.tool-call.error    { border-left-color: var(--danger); }
+.tool-call.error     { border-left-color: var(--danger); }
+
+
+/* ==============================================
+   Context Chips
+   ============================================== */
 
 .context-chip {
     display: inline-flex;
@@ -249,8 +600,8 @@ html, body {
     gap: 4px;
     padding: 1px 8px;
     margin: 0 2px;
-    background: color-mix(in srgb, var(--accent) 15%, var(--bg-primary));
-    border-radius: 4px;
+    background: var(--accent-dim);
+    border-radius: var(--radius-xs);
     font-size: 12px;
     font-family: var(--font-mono);
     color: var(--accent);
@@ -262,19 +613,31 @@ html, body {
 .context-chip-remove {
     cursor: pointer;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1;
+    transition: color var(--duration-fast) var(--ease);
 }
+
 .context-chip-remove:hover { color: var(--danger); }
+
+
+/* ==============================================
+   Config Bar
+   ============================================== */
 
 .config-bar {
     display: flex;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
 }
+
+
+/* ==============================================
+   Dropdown (shared)
+   ============================================== */
 
 .dropdown {
     position: relative;
@@ -284,7 +647,7 @@ html, body {
 
 .dropdown-trigger {
     width: 100%;
-    padding: 3px 20px 3px 6px;
+    padding: 4px 24px 4px 8px;
     background: var(--bg-surface);
     color: var(--text-secondary);
     border: 1px solid var(--border);
@@ -297,52 +660,76 @@ html, body {
     text-overflow: ellipsis;
     outline: none;
     position: relative;
+    transition: border-color var(--duration-fast) var(--ease),
+                color var(--duration-fast) var(--ease),
+                background-color var(--duration-fast) var(--ease);
 }
 
 .dropdown-trigger::after {
     content: '\25B4';
     position: absolute;
-    right: 6px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 8px;
     color: var(--text-muted);
+    transition: color var(--duration-fast) var(--ease);
 }
 
-.dropdown-trigger:hover,
+.dropdown-trigger:hover {
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+}
+
 .dropdown.open .dropdown-trigger {
     border-color: var(--accent);
     color: var(--text-primary);
 }
 
+.dropdown.open .dropdown-trigger::after {
+    color: var(--accent);
+}
+
+/* ---- Dropdown Menu (animated) ---- */
+
 .dropdown-menu {
-    display: none;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + 4px);
     left: 0;
     right: 0;
-    margin-bottom: 2px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
     max-height: 200px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-md);
+    transition: opacity var(--duration-base) var(--ease),
+                transform var(--duration-base) var(--ease),
+                visibility var(--duration-base);
 }
 
 .dropdown.open .dropdown-menu {
-    display: block;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 
 .dropdown-item {
-    padding: 5px 8px;
+    padding: 6px 10px;
     font-size: 11px;
     color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background-color var(--duration-fast) var(--ease),
+                color var(--duration-fast) var(--ease);
 }
 
 .dropdown-item:hover {
@@ -358,20 +745,24 @@ html, body {
 .dropdown-item.disabled {
     color: var(--text-muted);
     opacity: 0.5;
+    cursor: default;
 }
 
 .dropdown-group-label {
-    padding: 4px 8px 2px;
+    padding: 6px 10px 3px;
     font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 600;
 }
+
+/* ---- Dropdown Search ---- */
 
 .dropdown-search-wrap {
     position: sticky;
     top: 0;
-    padding: 4px;
+    padding: 6px;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
     z-index: 1;
@@ -379,17 +770,20 @@ html, body {
 
 .dropdown-search {
     width: 100%;
-    padding: 4px 6px;
+    padding: 5px 8px;
     background: var(--bg-primary);
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 11px;
     outline: none;
+    transition: border-color var(--duration-fast) var(--ease),
+                box-shadow var(--duration-fast) var(--ease);
 }
 
 .dropdown-search:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.08);
 }
 
 .dropdown-search::placeholder {
@@ -427,8 +821,12 @@ html, body {
 }
 
 
+/* ==============================================
+   Input Area
+   ============================================== */
+
 #input-area {
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
@@ -436,8 +834,8 @@ html, body {
 
 .input-wrapper {
     display: flex;
-    gap: 6px;
-    align-items: stretch;
+    gap: 8px;
+    align-items: flex-end;
 }
 
 .input-box {
@@ -447,16 +845,19 @@ html, body {
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    transition: border-color var(--duration-fast) var(--ease),
+                box-shadow var(--duration-fast) var(--ease);
 }
 
 .input-box:focus-within {
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.10);
 }
 
 #prompt-input {
     flex: 1;
-    min-height: 32px;
-    padding: 6px 10px;
+    min-height: 36px;
+    padding: 8px 12px;
     background: transparent;
     color: var(--text-primary);
     border: none;
@@ -480,61 +881,110 @@ html, body {
 .input-actions {
     display: flex;
     gap: 4px;
+    padding-bottom: 2px;
 }
 
+
+/* ==============================================
+   Buttons
+   ============================================== */
+
 .btn-primary, .btn-danger {
-    padding: 6px 14px;
+    padding: 8px 16px;
     border: none;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color var(--duration-fast) var(--ease),
+                opacity var(--duration-fast) var(--ease);
 }
 
 .btn-primary {
     background: var(--accent);
     color: var(--bg-primary);
 }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
 .btn-danger {
     background: var(--danger);
-    color: var(--bg-primary);
+    color: white;
 }
-.btn-danger:hover { opacity: 0.9; }
+
+.btn-danger:hover { opacity: 0.85; }
+
+
+/* ==============================================
+   Utilities
+   ============================================== */
 
 .hidden { display: none !important; }
 
+
+/* ==============================================
+   Streaming Cursor
+   ============================================== */
+
 .streaming-cursor::after {
-    content: '\25ca';
-    animation: blink 1s step-end infinite;
-    color: var(--accent);
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 15px;
+    background: var(--accent);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    animation: cursor-blink 1s step-end infinite;
 }
 
-@keyframes blink {
+@keyframes cursor-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
 }
 
+
+/* ==============================================
+   Error Banner
+   ============================================== */
+
 .error-banner {
-    padding: 8px 12px;
-    background: color-mix(in srgb, var(--danger) 15%, transparent);
-    border: 1px solid var(--danger);
+    padding: 10px 14px;
+    background: rgba(247, 118, 142, 0.07);
+    border: 1px solid rgba(247, 118, 142, 0.20);
     border-radius: var(--radius-sm);
     color: var(--danger);
     font-size: 12px;
-    margin: 8px 10px;
+    margin: 8px 12px;
 }
 
-#messages::-webkit-scrollbar { width: 6px; }
+
+/* ==============================================
+   Scrollbars
+   ============================================== */
+
+#messages::-webkit-scrollbar { width: 5px; }
 #messages::-webkit-scrollbar-track { background: transparent; }
 #messages::-webkit-scrollbar-thumb {
-    background: var(--bg-hover);
+    background: var(--border);
     border-radius: 3px;
 }
-#messages::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+#messages::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+
+/* ==============================================
+   File Links
+   ============================================== */
 
 .file-link {
     color: var(--accent);
@@ -542,5 +992,10 @@ html, body {
     text-decoration: none;
     font-family: var(--font-mono);
     font-size: 12px;
+    transition: color var(--duration-fast) var(--ease);
 }
-.file-link:hover { text-decoration: underline; }
+
+.file-link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
