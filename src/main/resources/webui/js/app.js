@@ -54,6 +54,8 @@ function wireUICallbacks() {
   ui.onAbort(handleAbort);
   ui.onNewSession(handleNewSession);
   ui.onSessionSwitch(handleSessionSwitch);
+  ui.onDeleteSession(handleDeleteSession);
+  ui.onBulkDeleteSessions(handleBulkDeleteSessions);
   ui.onFileClick(handleFileClick);
   ui.onModelChange(handleModelChange);
   ui.onVariantChange(handleVariantChange);
@@ -85,6 +87,11 @@ function connectStreams() {
       ui.setStreaming(false);
       ui.finalizeMessage(messageId, message);
       ui.focusInput();
+      api.getSessionMessages(sessionId).then(messages => {
+        state.messages.set(sessionId, messages || []);
+        refreshContextUsage(messages || []);
+        trimMessageCache();
+      }).catch(() => {});
     },
     onSessionUpdated: (sessionId, session) => {
       const s = state.sessions.find((s) => s.id === sessionId);
@@ -92,6 +99,20 @@ function connectStreams() {
         s.title = session.title;
         ui.renderSessionList(state.sessions, state.currentSessionId);
       }
+    },
+    onSessionDeleted: (sessionId) => {
+      state.sessions = state.sessions.filter(s => s.id !== sessionId);
+      state.messages.delete(sessionId);
+      if (state.currentSessionId === sessionId) {
+          if (state.sessions.length > 0) {
+              handleSessionSwitch(state.sessions[0].id);
+          } else {
+              state.currentSessionId = null;
+              ui.renderMessages([]);
+              refreshContextUsage([]);
+          }
+      }
+      ui.renderSessionList(state.sessions, state.currentSessionId);
     },
     onError: () => {
       ui.showConnectionStatus('connecting');
@@ -140,18 +161,10 @@ async function handleSend() {
     if (state.selectedVariant) config.variant = state.selectedVariant;
     if (state.selectedAgent) config.agent = state.selectedAgent;
     await api.sendPromptWithConfig(state.currentSessionId, parts, config);
-
-    const messages = await api.getSessionMessages(state.currentSessionId);
-    state.messages.set(state.currentSessionId, messages || []);
-    ui.renderMessages(messages || []);
-
-    state.isStreaming = false;
-    ui.setStreaming(false);
-    ui.focusInput();
   } catch (e) {
     ui.showError('Failed to send message: ' + e.message);
-    ui.setStreaming(false);
     state.isStreaming = false;
+    ui.setStreaming(false);
   }
 }
 
@@ -182,13 +195,20 @@ async function handleSessionSwitch(sessionId) {
   if (sessionId === state.currentSessionId) return;
   state.currentSessionId = sessionId;
 
+  if (state.isStreaming) {
+    state.isStreaming = false;
+    ui.setStreaming(false);
+  }
+
   if (state.messages.has(sessionId)) {
     ui.renderMessages(state.messages.get(sessionId));
+    refreshContextUsage(state.messages.get(sessionId));
   } else {
     try {
       const messages = await api.getSessionMessages(sessionId);
       state.messages.set(sessionId, messages || []);
       ui.renderMessages(messages || []);
+      refreshContextUsage(messages || []);
     } catch (e) {
       if (e.message?.includes('404')) {
         state.sessions = state.sessions.filter((s) => s.id !== sessionId);
@@ -200,11 +220,71 @@ async function handleSessionSwitch(sessionId) {
       }
     }
   }
+  trimMessageCache();
   ui.focusInput();
 }
 
+async function handleDeleteSession(sessionId) {
+    if (!confirm('Delete this session?')) return;
+    try {
+        await api.deleteSession(sessionId);
+        removeSessionFromState(sessionId);
+        await switchAfterDelete();
+        ui.renderSessionList(state.sessions, state.currentSessionId);
+    } catch (e) {
+        ui.showError('Failed to delete session');
+    }
+}
+
+async function handleBulkDeleteSessions(sessionIds) {
+    if (!sessionIds || sessionIds.length === 0) return;
+    const count = sessionIds.length;
+    if (!confirm(`Delete ${count} session${count > 1 ? 's' : ''}?`)) return;
+
+    let failed = 0;
+    for (const id of sessionIds) {
+        try {
+            await api.deleteSession(id);
+            removeSessionFromState(id);
+        } catch (_) {
+            failed++;
+        }
+    }
+    await switchAfterDelete();
+    ui.renderSessionList(state.sessions, state.currentSessionId);
+    if (failed > 0) ui.showError(`Failed to delete ${failed} session(s)`);
+}
+
+function removeSessionFromState(sessionId) {
+    state.sessions = state.sessions.filter(s => s.id !== sessionId);
+    state.messages.delete(sessionId);
+}
+
+const MAX_CACHED_SESSIONS = 20;
+
+function trimMessageCache() {
+    if (state.messages.size <= MAX_CACHED_SESSIONS) return;
+    for (const [id] of state.messages) {
+        if (id === state.currentSessionId) continue;
+        state.messages.delete(id);
+        if (state.messages.size <= MAX_CACHED_SESSIONS) break;
+    }
+}
+
+async function switchAfterDelete() {
+    if (state.currentSessionId && !state.sessions.find(s => s.id === state.currentSessionId)) {
+        if (state.sessions.length > 0) {
+            await handleSessionSwitch(state.sessions[0].id);
+        } else {
+            state.currentSessionId = null;
+            ui.renderMessages([]);
+            refreshContextUsage([]);
+        }
+    }
+}
+
 function handleFileClick(path, line) {
-  if (bridge) bridge.openFile(path, line);
+  if (bridge) bridge.openFile(path, line).catch(() => {});
 }
 
 async function loadSessions() {
@@ -247,6 +327,7 @@ async function loadConfig() {
           modelID: modelId,
           name: model.name || modelId,
           variants: model.variants ? Object.keys(model.variants) : [],
+          contextLimit: model.limit?.context || 0,
         });
       }
     }
@@ -266,7 +347,9 @@ async function loadConfig() {
       ui.renderAgentList(primaryAgents, state.selectedAgent);
       applyAgentDefaults(agentObj, models);
     }
-  } catch (_) {}
+  } catch (e) {
+    console.warn('Failed to load config:', e);
+  }
 }
 
 function handleModelChange(value) {
@@ -309,5 +392,44 @@ function applyAgentDefaults(agentObj, models) {
     ui.renderVariantList(agentObj.variant ? [agentObj.variant] : [], state.selectedVariant);
   }
 }
+
+function refreshContextUsage(messages) {
+  if (!messages || messages.length === 0) {
+    ui.updateContextUsage(0, 0);
+    return;
+  }
+
+  const lastAssistant = [...messages].reverse().find((m) => {
+    const info = m.info || m;
+    return info.role === 'assistant' && info.tokens;
+  });
+
+  if (!lastAssistant) {
+    ui.updateContextUsage(0, 0);
+    return;
+  }
+
+  const info = lastAssistant.info || lastAssistant;
+  const tokens = info.tokens || {};
+  const cache = tokens.cache || {};
+  const total =
+    (tokens.input || 0) +
+    (tokens.output || 0) +
+    (tokens.reasoning || 0) +
+    (cache.read || 0) +
+    (cache.write || 0);
+
+  const model = state.allModels.find(
+    (m) => m.providerID === info.providerID && m.modelID === info.modelID,
+  );
+  const limit = model?.contextLimit || 0;
+
+  ui.updateContextUsage(total, limit);
+}
+
+window.addEventListener('beforeunload', () => {
+  api?.disconnectEvents();
+  bridge?.disconnect();
+});
 
 document.addEventListener('DOMContentLoaded', init);

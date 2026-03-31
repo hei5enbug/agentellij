@@ -5,7 +5,12 @@ export class ChatUI {
     this.container = container;
     this.messagesList = container.querySelector('#messages-list');
     this.emptyState = container.querySelector('#empty-state');
-    this.sessionSelect = container.querySelector('#session-select');
+    this.sessionDropdown = container.querySelector('#session-dropdown');
+    this.sessionTrigger = container.querySelector('#session-trigger');
+    this.sessionPanel = container.querySelector('#session-panel');
+    this.sessionList = container.querySelector('#session-list');
+    this.sessionBulkBar = container.querySelector('#session-bulk-bar');
+    this.sessionBulkDelete = container.querySelector('#session-bulk-delete');
     this.btnNewSession = container.querySelector('#btn-new-session');
     this.btnSend = container.querySelector('#btn-send');
     this.btnAbort = container.querySelector('#btn-abort');
@@ -46,8 +51,42 @@ export class ChatUI {
     this.btnSend.addEventListener('click', () => this._callbacks.onSend?.());
     this.btnAbort.addEventListener('click', () => this._callbacks.onAbort?.());
     this.btnNewSession.addEventListener('click', () => this._callbacks.onNewSession?.());
-    this.sessionSelect.addEventListener('change', (e) => {
-      this._callbacks.onSessionSwitch?.(e.target.value);
+    this.sessionTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.sessionDropdown.classList.toggle('open');
+    });
+
+    this.sessionList.addEventListener('click', (e) => {
+      const checkbox = e.target.closest('.session-item-check');
+      if (checkbox) {
+        e.stopPropagation();
+        this._updateBulkBar();
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.session-item-delete');
+      if (deleteBtn) {
+        e.stopPropagation();
+        const sessionId = deleteBtn.closest('.session-item').dataset.sessionId;
+        this._callbacks.onDeleteSession?.(sessionId);
+        return;
+      }
+
+      const item = e.target.closest('.session-item');
+      if (item) {
+        e.stopPropagation();
+        const sessionId = item.dataset.sessionId;
+        this._callbacks.onSessionSwitch?.(sessionId);
+        this.sessionDropdown.classList.remove('open');
+      }
+    });
+
+    this.sessionBulkDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ids = this._getCheckedSessionIds();
+      if (ids.length > 0) {
+        this._callbacks.onBulkDeleteSessions?.(ids);
+      }
     });
     this._initDropdown(this.modelDropdown, (val) => this._callbacks.onModelChange?.(val));
     this._initDropdown(this.variantDropdown, (val) => this._callbacks.onVariantChange?.(val));
@@ -57,9 +96,25 @@ export class ChatUI {
       this.container.querySelectorAll('.dropdown.open').forEach((dd) => {
         if (!dd.contains(e.target)) dd.classList.remove('open');
       });
+      if (this.sessionDropdown && !this.sessionDropdown.contains(e.target)) {
+        this.sessionDropdown.classList.remove('open');
+      }
     });
 
     this.messagesList.addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('.btn-copy');
+      if (copyBtn) {
+        const pre = copyBtn.closest('.code-header')?.nextElementSibling;
+        const code = pre?.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+          }).catch(() => {});
+        }
+        return;
+      }
+
       const fileLink = e.target.closest('.file-link');
       if (fileLink) {
         e.preventDefault();
@@ -82,23 +137,50 @@ export class ChatUI {
   onNewSession(cb)    { this._callbacks.onNewSession = cb; }
   onSessionSwitch(cb) { this._callbacks.onSessionSwitch = cb; }
   onFileClick(cb)     { this._callbacks.onFileClick = cb; }
+  onDeleteSession(cb) { this._callbacks.onDeleteSession = cb; }
+  onBulkDeleteSessions(cb) { this._callbacks.onBulkDeleteSessions = cb; }
   onModelChange(cb)   { this._callbacks.onModelChange = cb; }
   onVariantChange(cb) { this._callbacks.onVariantChange = cb; }
   onAgentChange(cb)   { this._callbacks.onAgentChange = cb; }
 
   renderSessionList(sessions, currentId) {
-    this.sessionSelect.innerHTML = '';
+    this.sessionList.innerHTML = '';
+    this.sessionBulkBar.classList.add('hidden');
+
     if (!sessions || sessions.length === 0) {
-      this.sessionSelect.innerHTML = '<option value="">No sessions</option>';
+      this.sessionTrigger.textContent = 'No sessions';
+      this.sessionList.innerHTML = '<div class="session-empty">No sessions</div>';
       return;
     }
+    const current = sessions.find(s => s.id === currentId);
+    this.sessionTrigger.textContent = current ? (current.title || current.id.substring(0, 8)) : sessions[0].title || sessions[0].id.substring(0, 8);
+
     sessions.forEach((s) => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.title || s.id.substring(0, 8);
-      if (s.id === currentId) opt.selected = true;
-      this.sessionSelect.appendChild(opt);
+      const item = document.createElement('div');
+      item.className = 'session-item' + (s.id === currentId ? ' active' : '');
+      item.dataset.sessionId = s.id;
+      item.innerHTML = `
+          <input type="checkbox" class="session-item-check" title="Select for deletion">
+          <span class="session-item-title">${this._escapeHtml(s.title || s.id.substring(0, 8))}</span>
+          <button class="session-item-delete" title="Delete session">&times;</button>
+      `;
+      this.sessionList.appendChild(item);
     });
+  }
+
+  _getCheckedSessionIds() {
+    return [...this.sessionList.querySelectorAll('.session-item-check:checked')]
+      .map(cb => cb.closest('.session-item').dataset.sessionId);
+  }
+
+  _updateBulkBar() {
+    const count = this._getCheckedSessionIds().length;
+    if (count > 0) {
+      this.sessionBulkBar.classList.remove('hidden');
+      this.sessionBulkDelete.textContent = `Delete (${count})`;
+    } else {
+      this.sessionBulkBar.classList.add('hidden');
+    }
   }
 
   _initDropdown(dropdown, onChange) {
@@ -355,13 +437,21 @@ export class ChatUI {
       this.messagesList.appendChild(card);
     }
 
-    const content = card.querySelector('.message-content');
     if (!card._rawText) card._rawText = '';
     card._rawText += delta;
-    content.innerHTML = renderMarkdown(card._rawText);
-    content.classList.add('streaming-cursor');
 
-    if (!this._userScrolledUp) this.scrollToBottom();
+    if (!card._renderPending) {
+      card._renderPending = true;
+      requestAnimationFrame(() => {
+        card._renderPending = false;
+        const content = card.querySelector('.message-content');
+        if (content && card._rawText) {
+          content.innerHTML = renderMarkdown(card._rawText);
+          content.classList.add('streaming-cursor');
+        }
+        if (!this._userScrolledUp) this.scrollToBottom();
+      });
+    }
   }
 
   finalizeMessage(messageId, message) {
@@ -421,6 +511,35 @@ export class ChatUI {
       this.promptInput.appendChild(chip);
       const space = document.createTextNode('\u00A0');
       this.promptInput.appendChild(space);
+    }
+  }
+
+  updateContextUsage(current, max) {
+    const el = this.container.querySelector('#context-usage');
+    if (!el) return;
+
+    if (!current && !max) {
+      el.textContent = '— / —';
+      el.className = 'context-usage';
+      el.title = 'Context window usage';
+      return;
+    }
+
+    const fmt = (n) => {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return Math.round(n / 1000) + 'k';
+      return n.toString();
+    };
+
+    if (max > 0) {
+      const pct = Math.round((current / max) * 100);
+      el.textContent = `${fmt(current)} / ${fmt(max)}`;
+      el.title = `Context: ${current.toLocaleString()} / ${max.toLocaleString()} tokens (${pct}%)`;
+      el.className = 'context-usage' + (pct > 90 ? ' danger' : pct > 75 ? ' warning' : '');
+    } else {
+      el.textContent = fmt(current);
+      el.title = `${current.toLocaleString()} tokens used`;
+      el.className = 'context-usage';
     }
   }
 

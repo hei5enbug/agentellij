@@ -13,7 +13,7 @@ renderer.code = function ({ text, lang }) {
   return `
     <div class="code-header">
       <span class="code-lang">${escapeHtml(language)}</span>
-      <button class="btn-copy" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('code').textContent)">Copy</button>
+      <button class="btn-copy">Copy</button>
     </div>
     <pre class="code-block-wrapper"><code class="language-${escapeHtml(language)}">${escaped}</code></pre>
   `;
@@ -44,5 +44,6 @@ function sanitizeHtml(html) {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, '');
 }
