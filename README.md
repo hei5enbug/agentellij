@@ -2,8 +2,9 @@
 
 **AI coding agents, inside IntelliJ IDEA.**
 
-[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ_IDEA-2024.3+-blue?logo=intellijidea&logoColor=white)](https://www.jetbrains.com/idea/)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/com.agentellij?label=Marketplace&logo=jetbrains&logoColor=white)](https://plugins.jetbrains.com/plugin/com.agentellij)
+[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ_IDEA-2025.1+-blue?logo=intellijidea&logoColor=white)](https://www.jetbrains.com/idea/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.1.20-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -11,32 +12,30 @@ AgentellIJ embeds AI coding agents directly into your IDE. No terminal switching
 
 Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude Code**, **Codex**, and other terminal-based AI coding agents.
 
-<!-- 
-Screenshot or GIF here. Example:
-![AgentellIJ Demo](docs/demo.gif)
--->
+![AgentellIJ Screenshot](docs/media/media-screenshot-2.png)
 
 ## Features
 
 - **Embedded Chat UI** — Agent's web interface rendered inside IntelliJ via JCEF (Chromium)
 - **Real-Time Sync** — Open files, active editor, and selections are automatically pushed to the agent
-- **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree
+- **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree (`Ctrl+Shift+I` / `Cmd+Shift+I`)
 - **Drag & Drop** — Drop files from the project tree directly into the chat
-- **Paste Path** — Insert file paths into the prompt via right-click
 - **Background Process** — Agent runs in a hidden terminal tab; no window clutter
 - **Per-Project Sessions** — Each project gets an isolated, token-secured session
 - **Configurable** — Custom binary path and CLI arguments via **Settings > Tools > AgentellIJ**
 
 ## Prerequisites
 
-- **IntelliJ IDEA** 2024.3 or later (Community or Ultimate)
+- **IntelliJ IDEA** 2025.1 or later (Community or Ultimate)
 - **JBR with JCEF** — Required for the embedded browser (default JetBrains Runtime includes it)
 - **An AI coding agent** — Any agent that exposes a web UI via a local server. For example:
   - [OpenCode](https://github.com/sst/opencode) — `npm i -g opencode-ai`
-  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — _Coming soon_
-  - [Codex](https://github.com/openai/codex) — _Coming soon_
 
 ## Installation
+
+### From JetBrains Marketplace
+
+Install directly from your IDE: **Settings > Plugins > Marketplace** — search **"AgentellIJ"**.
 
 ### From Source
 
@@ -50,10 +49,6 @@ The plugin zip will be at `build/distributions/agentellij-*.zip`.
 
 Install it in IntelliJ: **Settings > Plugins > ⚙️ > Install Plugin from Disk...**
 
-### From JetBrains Marketplace
-
-> _Coming soon._
-
 ## Usage
 
 ### Opening the Chat
@@ -66,10 +61,11 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 
 ### Keyboard Shortcuts
 
+All context actions share a single smart shortcut — the plugin automatically selects the appropriate action (file, lines, or directory) based on focus and selection state.
+
 | Action | Windows / Linux | macOS |
 |---|---|---|
-| Add file to context | `Ctrl+,` | `Cmd+\` |
-| Add selected lines to context | `Ctrl+Shift+,` | `Cmd+Shift+\` |
+| Add to context | `Ctrl+Shift+I` | `Cmd+Shift+I` |
 
 ### Context Menu Actions
 
@@ -78,8 +74,7 @@ Right-click in the **editor** or **editor tab**:
 - **AgentellIJ: Add Lines to Context** — Sends the file path with line range (e.g., `src/Main.kt:10-25`)
 
 Right-click in the **Project tree**:
-- **AgentellIJ: Add to Context** — Sends selected file(s)
-- **AgentellIJ: Paste Path** — Inserts the file path into the chat prompt
+- **AgentellIJ: Add to Context** — Sends selected file(s) or directory
 
 ### Drag & Drop
 
@@ -108,27 +103,33 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 ```
 com.agentellij
 ├── actions/           # IDE actions (context menu, shortcuts)
-│   ├── AddFileToContextAction
-│   ├── AddLinesToContextAction
-│   ├── AddFromProjectTreeAction
-│   └── PastePathAction
-├── backend/           # Agent process lifecycle
-│   ├── BackendLauncher        # Launches agent in terminal
-│   ├── BackendProcess         # Process abstraction interface
-│   └── TerminalBackendProcess # Terminal-based implementation
+│   ├── AddFileToContextAction     # Editor/tab → add file to context
+│   ├── AddLinesToContextAction    # Editor → add selected lines to context
+│   ├── AddDirectoryToContextAction # Project tree → add file(s)/directory
+│   └── AgentellIJActionPromoter   # Prioritizes AgentellIJ actions in menus
+├── backend/           # Agent process lifecycle & profile management
+│   ├── AgentProfile               # Interface: agent-specific behavior
+│   ├── AgentProfileResolver       # Resolves profile from settings/env
+│   ├── OpenCodeProfile            # OpenCode agent implementation
+│   ├── BackendLauncher            # Launches agent process with fallback
+│   ├── BackendProcess             # Process abstraction interface
+│   ├── DirectBackendProcess       # Direct process with piped stdout
+│   └── TerminalBackendProcess     # Terminal widget wrapper
 ├── bridge/            # IDE ↔ Agent communication (HTTP + SSE)
-│   ├── IdeBridge              # HTTP server on localhost (random port)
-│   ├── BridgeSession          # Per-project session with token auth
-│   └── MessageHandler         # Routes: openFile, reloadPath, kv/model/settings
+│   ├── IdeBridge                  # HTTP server on localhost (random port)
+│   ├── BridgeSession              # Per-project session with token auth
+│   └── MessageHandler             # Routes: openFile, openUrl, reloadPath, kv, model, settings
 ├── context/           # Context passing to agent
-│   ├── ContextSender          # Sends file paths via bridge
-│   └── DragDropHandler        # AWT drag-and-drop → context
+│   ├── ContextSender              # Sends file paths via bridge
+│   └── DragDropHandler            # AWT drag-and-drop → context
 ├── settings/          # Plugin configuration (persistent state)
-│   ├── AgentellIJSettings     # State: binary path, custom args
-│   └── AgentellIJConfigurable # Settings UI panel
-└── ui/                # Tool window and browser
-    ├── ChatToolWindowFactory  # JCEF browser + backend orchestration
-    └── OpenFilesTracker       # Syncs open/active files to agent
+│   ├── AgentellIJSettings         # State: binary path, custom args
+│   └── AgentellIJConfigurable     # Settings UI panel
+├── ui/                # Tool window and browser
+│   ├── ChatToolWindowFactory      # JCEF browser + backend orchestration
+│   └── OpenFilesTracker           # Syncs open/active files to agent
+└── util/              # Shared utilities
+    └── SafeUtils                  # closeQuietly, runQuietly, resolveAbsolutePath
 ```
 
 ### Communication Flow
@@ -177,10 +178,18 @@ This launches a sandboxed IntelliJ instance with the plugin pre-installed.
 ./gradlew test
 ```
 
+### Verify Plugin Compatibility
+
+```bash
+./gradlew verifyPlugin
+```
+
+Runs JetBrains Plugin Verifier against recommended IDE versions.
+
 ### Project Requirements
 
 - JDK 21
-- Gradle (wrapper included)
+- Gradle 9.4 (wrapper included)
 
 ## Contributing
 

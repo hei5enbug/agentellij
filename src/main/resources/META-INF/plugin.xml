@@ -1,43 +1,36 @@
 <idea-plugin>
     <id>com.agentellij</id>
     <name>AgentellIJ</name>
-    <vendor email="agentellij@example.com" url="https://github.com/agentellij">AgentellIJ</vendor>
-    <description>Integrates AI coding agents (OpenCode, Claude Code, Codex, and more) into IntelliJ IDEA with JCEF-based chat UI, context shortcuts, and editor synchronization.</description>
+    <vendor email="kbm0598@gmail.com" url="https://github.com/hei5enbug/agentellij">AgentellIJ</vendor>
+    <description>Integrates AI coding agents (OpenCode, Claude Code, Codex, and more) into IntelliJ IDEA with JCEF-based
+        chat UI, context shortcuts, and editor synchronization.
+    </description>
+
+    <resource-bundle>messages.AgentellIJBundle</resource-bundle>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="AgentellIJ"
-                    factoryClass="com.agentellij.ui.ChatToolWindowFactory"
-                    anchor="right"
-                    canCloseContent="true"
+        <toolWindow id="AgentellIJ" factoryClass="com.agentellij.ui.ChatToolWindowFactory" anchor="right"
                     icon="/icons/agentellij-icon.svg"/>
-        <applicationConfigurable
-                instance="com.agentellij.settings.AgentellIJConfigurable"
-                id="com.agentellij.settings"
-                parentId="tools"
-                displayName="AgentellIJ"/>
-        <applicationService
-                serviceImplementation="com.agentellij.settings.AgentellIJSettings"/>
+        <applicationConfigurable instance="com.agentellij.settings.AgentellIJConfigurable"
+                                 id="com.agentellij.settings"
+                                 parentId="tools"
+                                 key="settings.displayName"/>
+        <applicationService serviceImplementation="com.agentellij.settings.AgentellIJSettings"/>
         <actionPromoter implementation="com.agentellij.actions.AgentellIJActionPromoter"/>
     </extensions>
 
     <actions>
-        <action id="com.agentellij.AddDirectoryToContext"
-                class="com.agentellij.actions.AddDirectoryToContextAction"
-                text="AgentellIJ: Add to Context"
-                description="Add selected file(s) or directory to agent context">
+        <action id="com.agentellij.AddDirectoryToContext" class="com.agentellij.actions.AddDirectoryToContextAction">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddToContext"
-                class="com.agentellij.actions.AddFileToContextAction"
-                text="AgentellIJ: Add File to Context"
-                description="Add current file to agent context">
+        <action id="com.agentellij.AddToContext" class="com.agentellij.actions.AddFileToContextAction">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
@@ -45,10 +38,7 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddLinesToContext"
-                class="com.agentellij.actions.AddLinesToContextAction"
-                text="AgentellIJ: Add Lines to Context"
-                description="Add selected lines to agent context">
+        <action id="com.agentellij.AddLinesToContext" class="com.agentellij.actions.AddLinesToContextAction">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>
