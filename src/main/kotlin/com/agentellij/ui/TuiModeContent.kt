@@ -9,6 +9,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.terminal.ui.TerminalWidget
+import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.awt.BorderLayout
@@ -59,8 +60,11 @@ class TuiModeContent(
         }
 
         val terminalWidget = try {
-            TerminalToolWindowManager.getInstance(project)
-                .createShellWidget(baseDir, "AgentellIJ TUI", false, true)
+            val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+            val options = ShellStartupOptions.Builder()
+                .workingDirectory(baseDir)
+                .build()
+            runner.startShellTerminalWidget(toolWindow.disposable, options, true)
         } catch (e: Exception) {
             logger.warn("Failed to create terminal widget", e)
             showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")

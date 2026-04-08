@@ -31,7 +31,7 @@ class AgentellIJConfigurable : Configurable {
             .addLabeledComponent("Mode:", modeComboBox!!)
             .addTooltip("Choose between the embedded web UI and terminal wrapper modes")
             .addLabeledComponent("Agent binary path:", agentPathField!!)
-            .addTooltip("Leave empty to use 'opencode' from PATH. For other agents, specify the full path.")
+            .addTooltip("Leave empty to auto-detect 'opencode' from PATH or common install locations. For other agents, specify the full path.")
             .addLabeledComponent("Additional arguments:", customArgsField!!)
             .addTooltip("Extra arguments appended after the agent binary (space-separated)")
             .addComponentFillVertically(javax.swing.JPanel(), 0)

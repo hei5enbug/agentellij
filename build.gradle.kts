@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.2.0"
+version = "0.2.1"
 
 repositories {
     mavenCentral()
@@ -55,7 +55,7 @@ intellijPlatform {
             <ul>
               <li><b>Embedded Chat UI</b> — JCEF-based web interface inside the IDE</li>
               <li><b>Real-Time Sync</b> — Open files and selections pushed to the agent automatically</li>
-              <li><b>Context Shortcuts</b> — Add files or selected lines via ⌘⇧I or right-click</li>
+              <li><b>Context Shortcuts</b> — Use Ctrl+Shift+I / ⌘⇧I to add the current file, selected lines, or project tree selection based on focus, or use right-click actions</li>
               <li><b>Drag &amp; Drop</b> — Drop files from project tree into chat</li>
               <li><b>Per-Project Sessions</b> — Isolated, token-secured sessions</li>
               <li><b>Background Process</b> — Agent runs in a hidden terminal tab</li>
@@ -69,6 +69,20 @@ intellijPlatform {
             </ol>
         """.trimIndent())
         changeNotes.set("""
+            <h3>0.2.1</h3>
+            <ul>
+              <li>Auto-detect the OpenCode binary from PATH and common install locations when no explicit binary path is configured</li>
+              <li>Clarify shortcut behavior and setup details in the README and marketplace metadata</li>
+            </ul>
+
+            <h3>0.2.0</h3>
+            <ul>
+              <li>Add TUI mode to run the agent directly inside the tool window terminal</li>
+              <li>Keep GUI mode available as the embedded JCEF web UI</li>
+              <li>Improve backend launcher recovery and binary fallback handling</li>
+              <li>Unify context actions behind the shared Ctrl+Shift+I / ⌘⇧I shortcut</li>
+            </ul>
+
             <h3>0.1.1</h3>
             <ul>
               <li>Add marketplace plugin icons (40×40 SVG, light and dark themes)</li>
