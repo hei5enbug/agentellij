@@ -26,13 +26,14 @@ async function init() {
   const opencodeApiUrl = params.get('opencodeApi');
   const ideBridgeUrl = params.get('ideBridge');
   const ideBridgeToken = params.get('ideBridgeToken');
+  const agentName = params.get('agentName') || 'Agent';
 
   if (!opencodeApiUrl) {
     return;
   }
 
   api = new OpenCodeApi(opencodeApiUrl);
-  ui = new ChatUI(document.getElementById('app'));
+  ui = new ChatUI(document.getElementById('app'), { agentName });
 
   if (ideBridgeUrl && ideBridgeToken) {
     bridge = new IdeBridgeClient(ideBridgeUrl, ideBridgeToken);
@@ -77,16 +78,14 @@ function connectStreams() {
     onMessagePartUpdated: (sessionId, messageId, part) => {
       if (sessionId !== state.currentSessionId) return;
       const status = part?.state || part?.status || 'running';
-      ui.updateToolCallStatus(messageId, part?.id, status);
+      ui.updateToolCallStatus(messageId, part?.id, status, part);
     },
     onMessageUpdated: (sessionId, messageId, message) => {
       if (sessionId !== state.currentSessionId) return;
       if (message?.role !== 'assistant') return;
+      if (message?.agent) ui.setAgentName(message.agent);
       if (!message?.time?.completed) return;
-      state.isStreaming = false;
-      ui.setStreaming(false);
       ui.finalizeMessage(messageId, message);
-      ui.focusInput();
       api.getSessionMessages(sessionId).then(messages => {
         state.messages.set(sessionId, messages || []);
         refreshContextUsage(messages || []);
@@ -113,6 +112,23 @@ function connectStreams() {
           }
       }
       ui.renderSessionList(state.sessions, state.currentSessionId);
+    },
+    onSessionStatus: (sessionId, status) => {
+      if (sessionId !== state.currentSessionId) return;
+      if (status?.type === 'busy') {
+        state.isStreaming = true;
+        ui.setStreaming(true);
+      } else if (status?.type === 'idle') {
+        state.isStreaming = false;
+        ui.setStreaming(false);
+        ui.focusInput();
+      }
+    },
+    onSessionIdle: (sessionId) => {
+      if (sessionId !== state.currentSessionId) return;
+      state.isStreaming = false;
+      ui.setStreaming(false);
+      ui.focusInput();
     },
     onError: () => {
       ui.showConnectionStatus('connecting');
@@ -310,10 +326,11 @@ async function loadSessions() {
 
 async function loadConfig() {
   try {
-    const [providerData, agents, config] = await Promise.all([
+    const [providerData, agents, config, commands] = await Promise.all([
       api.getProviders(),
       api.getAgents(),
       api.getConfig().catch(() => null),
+      api.getCommands().catch(() => []),
     ]);
 
     const models = [];
@@ -344,9 +361,16 @@ async function loadConfig() {
     if (primaryAgents.length > 0) {
       const agentObj = primaryAgents.find((a) => a.name === defaultAgent) || primaryAgents[0];
       state.selectedAgent = agentObj.name;
+      ui.setAgentName(agentObj.name);
       ui.renderAgentList(primaryAgents, state.selectedAgent);
       applyAgentDefaults(agentObj, models);
     }
+
+    const slashCommands = (Array.isArray(commands) ? commands : []).map((cmd) => ({
+      name: '/' + cmd.name,
+      description: cmd.description || '',
+    }));
+    ui.setSlashCommands(slashCommands);
   } catch (e) {
     console.warn('Failed to load config:', e);
   }
@@ -369,6 +393,7 @@ function handleVariantChange(value) {
 
 function handleAgentChange(value) {
   state.selectedAgent = value;
+  ui.setAgentName(value);
   const agentObj = state.agents.find((a) => a.name === value);
   if (agentObj) applyAgentDefaults(agentObj, state.allModels);
 }

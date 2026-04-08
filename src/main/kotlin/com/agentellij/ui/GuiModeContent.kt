@@ -340,6 +340,8 @@ class GuiModeContent(
             append(URLEncoder.encode(bridgeBaseUrl, StandardCharsets.UTF_8))
             append("&ideBridgeToken=")
             append(URLEncoder.encode(token, StandardCharsets.UTF_8))
+            append("&agentName=")
+            append(URLEncoder.encode(profile.displayName, StandardCharsets.UTF_8))
             append("&v=")
             append(URLEncoder.encode(pluginVersion(), StandardCharsets.UTF_8))
         }

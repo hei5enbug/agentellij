@@ -23,6 +23,7 @@
             </div>
             <div class="toolbar-right">
                 <span id="context-usage" class="context-usage" title="Context window usage">— / —</span>
+                <div id="context-bar" class="context-bar" title="Context window usage"><div class="context-bar-fill"></div></div>
                 <span id="connection-status" class="status-dot" title="Disconnected"></span>
             </div>
         </header>
@@ -40,7 +41,7 @@
                 <button class="dropdown-trigger" data-label="Model"></button>
                 <div class="dropdown-menu">
                     <div class="dropdown-search-wrap">
-                        <input type="text" class="dropdown-search" placeholder="Search models..." autocomplete="off" spellcheck="false" />
+                        <input type="text" class="dropdown-search" placeholder="Search models..." autocomplete="off" spellcheck="false" aria-label="Search models" />
                     </div>
                     <div class="dropdown-items"></div>
                 </div>
@@ -56,6 +57,9 @@
         </div>
 
         <footer id="input-area">
+            <div id="slash-popup" class="slash-popup hidden">
+                <div id="slash-popup-list" class="slash-popup-list"></div>
+            </div>
             <div class="input-wrapper">
                 <div class="input-box">
                     <div id="prompt-input"

@@ -63,7 +63,7 @@ html, body {
     overflow: hidden;
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: var(--font-sans);
+    font-family: var(--font-sans), sans-serif;
     font-size: 13px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -120,12 +120,12 @@ html, body {
 .session-trigger {
     width: 100%;
     height: 26px;
-    padding: 0 24px 0 8px;
+    padding: 0 28px 0 10px;
     background: var(--bg-surface);
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 24px;
     cursor: pointer;
     text-align: left;
@@ -144,7 +144,7 @@ html, body {
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 9px;
+    font-size: 13px;
     color: var(--text-muted);
     transition: color var(--duration-fast) var(--ease);
 }
@@ -196,7 +196,7 @@ html, body {
     display: flex;
     align-items: center;
     padding: 6px 10px;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
     gap: 8px;
     transition: background-color var(--duration-fast) var(--ease);
@@ -239,7 +239,7 @@ html, body {
     border: none;
     background: none;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     border-radius: var(--radius-xs);
     display: flex;
@@ -264,7 +264,7 @@ html, body {
     padding: 16px;
     text-align: center;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 /* ---- Bulk Delete Bar ---- */
@@ -290,7 +290,7 @@ html, body {
     color: white;
     border: none;
     border-radius: var(--radius-sm);
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
@@ -320,7 +320,7 @@ html, body {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 15px;
+    font-size: 16px;
     line-height: 24px;
     text-align: center;
     transition: background-color var(--duration-fast) var(--ease),
@@ -340,9 +340,9 @@ html, body {
    ============================================== */
 
 .context-usage {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-mono), monospace;
     white-space: nowrap;
     line-height: 26px;
     transition: color var(--duration-base) var(--ease);
@@ -350,6 +350,28 @@ html, body {
 
 .context-usage.warning { color: var(--warning); }
 .context-usage.danger  { color: var(--danger); }
+
+.context-bar {
+    width: 60px;
+    height: 6px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.context-bar-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width var(--duration-base) var(--ease),
+                background-color var(--duration-base) var(--ease);
+}
+
+.context-bar.warning .context-bar-fill { background: var(--warning); }
+.context-bar.danger .context-bar-fill  { background: var(--danger); }
 
 .status-dot {
     width: 7px;
@@ -414,7 +436,7 @@ html, body {
 }
 
 .empty-state .shortcut-hint {
-    font-size: 11px;
+    font-size: 13px;
     opacity: 0.6;
     margin-top: 2px;
 }
@@ -446,11 +468,11 @@ html, body {
 }
 
 .message-role {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .message.user .message-role {
@@ -460,6 +482,7 @@ html, body {
 .message.assistant .message-role {
     color: var(--text-muted);
 }
+
 
 
 /* ==============================================
@@ -503,14 +526,14 @@ html, body {
     padding: 12px 14px;
     margin: 8px 0;
     overflow-x: auto;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-mono), monospace;
+    font-size: 13px;
     line-height: 1.55;
 }
 
 .message-content code {
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-mono), monospace;
+    font-size: 13px;
 }
 
 .message-content :not(pre) > code {
@@ -529,9 +552,9 @@ html, body {
     border: 1px solid var(--border);
     border-bottom: none;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-mono), monospace;
 }
 
 .code-header + pre {
@@ -545,7 +568,7 @@ html, body {
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 11px;
+    font-size: 13px;
     padding: 2px 6px;
     border-radius: var(--radius-xs);
     transition: color var(--duration-fast) var(--ease),
@@ -559,35 +582,150 @@ html, body {
 
 
 /* ==============================================
-   Tool Call Cards
+   Collapsible Part Cards (shared)
    ============================================== */
 
-.tool-call {
+.part-collapsible {
     border-left: 2px solid var(--accent);
     background: var(--bg-secondary);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    padding: 8px 12px;
     margin: 8px 0;
-    font-size: 12px;
+    font-size: 13px;
     transition: border-color var(--duration-base) var(--ease);
 }
 
-.tool-call-header {
+.part-summary {
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 8px 12px;
     font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background-color var(--duration-fast) var(--ease);
 }
+
+.part-summary::-webkit-details-marker { display: none; }
+
+.part-summary.no-expand {
+    cursor: default;
+}
+
+.part-summary.no-expand::before {
+    content: none;
+}
+
+.part-summary::before {
+    content: '\25B6';
+    font-size: 13px;
+    color: var(--text-muted);
+    transition: transform var(--duration-fast) var(--ease);
+    flex-shrink: 0;
+}
+
+details[open] > .part-summary::before {
+    transform: rotate(90deg);
+}
+
+.part-summary:hover {
+    background: var(--bg-hover);
+}
+
+.part-body {
+    padding: 4px 12px 10px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+}
+
+.part-body p { margin-bottom: 6px; }
+.part-body p:last-child { margin-bottom: 0; }
+
+.part-pre {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 8px 10px;
+    margin: 4px 0;
+    overflow-x: auto;
+    font-family: var(--font-mono), monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.part-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* ---- Tool Call ---- */
+
+.tool-call.pending   { border-left-color: var(--text-muted); }
+.tool-call.running   { border-left-color: var(--warning); }
+.tool-call.completed { border-left-color: var(--success); }
+.tool-call.error     { border-left-color: var(--danger); }
 
 .tool-call-status {
     font-size: 13px;
     line-height: 1;
 }
 
-.tool-call.pending   { border-left-color: var(--text-muted); }
-.tool-call.running   { border-left-color: var(--warning); }
-.tool-call.completed { border-left-color: var(--success); }
-.tool-call.error     { border-left-color: var(--danger); }
+.tool-call-name {
+    font-weight: 500;
+}
+
+.tool-call-hint {
+    color: var(--text-muted);
+    font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---- Thinking / Reasoning ---- */
+
+.part-thinking {
+    border-left-color: var(--warning);
+}
+
+/* ---- Tool Result ---- */
+
+.part-tool-result {
+    border-left-color: var(--success);
+}
+
+/* ---- File ---- */
+
+.part-file {
+    border-left-color: var(--accent);
+}
+
+/* ---- Subtask (sub-agent) ---- */
+
+.part-subtask {
+    border-left-color: #bb9af7;
+}
+
+/* ---- Patch (diff) ---- */
+
+.part-patch {
+    border-left-color: var(--success);
+}
+
+/* ---- Generic / Unknown ---- */
+
+.part-generic {
+    border-left-color: var(--text-muted);
+}
 
 
 /* ==============================================
@@ -602,8 +740,8 @@ html, body {
     margin: 0 2px;
     background: var(--accent-dim);
     border-radius: var(--radius-xs);
-    font-size: 12px;
-    font-family: var(--font-mono);
+    font-size: 13px;
+    font-family: var(--font-mono), monospace;
     color: var(--accent);
     white-space: nowrap;
     vertical-align: baseline;
@@ -613,7 +751,7 @@ html, body {
 .context-chip-remove {
     cursor: pointer;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     transition: color var(--duration-fast) var(--ease);
 }
@@ -652,7 +790,7 @@ html, body {
     color: var(--text-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 11px;
+    font-size: 13px;
     cursor: pointer;
     text-align: left;
     white-space: nowrap;
@@ -671,7 +809,7 @@ html, body {
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 8px;
+    font-size: 13px;
     color: var(--text-muted);
     transition: color var(--duration-fast) var(--ease);
 }
@@ -722,7 +860,7 @@ html, body {
 
 .dropdown-item {
     padding: 6px 10px;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
@@ -750,7 +888,7 @@ html, body {
 
 .dropdown-group-label {
     padding: 6px 10px 3px;
-    font-size: 10px;
+    font-size: 13px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -775,7 +913,7 @@ html, body {
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 11px;
+    font-size: 13px;
     outline: none;
     transition: border-color var(--duration-fast) var(--ease),
                 box-shadow var(--duration-fast) var(--ease);
@@ -822,6 +960,78 @@ html, body {
 
 
 /* ==============================================
+   Slash Command Popup
+   ============================================== */
+
+.slash-popup {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 260px;
+    overflow-y: auto;
+    margin: 0 12px 4px;
+    box-shadow: var(--shadow-md);
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--duration-base) var(--ease),
+                transform var(--duration-base) var(--ease);
+}
+
+.slash-popup.hidden {
+    display: none;
+}
+
+.slash-popup-list {
+    padding: 4px 0;
+}
+
+.slash-popup-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+}
+
+.slash-popup-item:hover,
+.slash-popup-item.active {
+    background: var(--bg-hover);
+}
+
+.slash-popup-name {
+    font-family: var(--font-mono), monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.slash-popup-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.slash-popup-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.slash-popup::-webkit-scrollbar { width: 4px; }
+.slash-popup::-webkit-scrollbar-track { background: transparent; }
+.slash-popup::-webkit-scrollbar-thumb {
+    background: var(--bg-hover);
+    border-radius: 2px;
+}
+
+
+/* ==============================================
    Input Area
    ============================================== */
 
@@ -862,7 +1072,7 @@ html, body {
     color: var(--text-primary);
     border: none;
     border-radius: var(--radius);
-    font-family: var(--font-sans);
+    font-family: var(--font-sans), sans-serif;
     font-size: 13px;
     line-height: 1.5;
     outline: none;
@@ -881,7 +1091,7 @@ html, body {
 .input-actions {
     display: flex;
     gap: 4px;
-    padding-bottom: 2px;
+    align-self: flex-end;
 }
 
 
@@ -893,12 +1103,21 @@ html, body {
     padding: 8px 16px;
     border: none;
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
     transition: background-color var(--duration-fast) var(--ease),
                 opacity var(--duration-fast) var(--ease);
+}
+
+/* Match Send/Stop button height to input-box initial height */
+.input-actions .btn-primary,
+.input-actions .btn-danger {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-primary {
@@ -962,7 +1181,7 @@ html, body {
     border: 1px solid rgba(247, 118, 142, 0.20);
     border-radius: var(--radius-sm);
     color: var(--danger);
-    font-size: 12px;
+    font-size: 13px;
     margin: 8px 12px;
 }
 
@@ -990,8 +1209,8 @@ html, body {
     color: var(--accent);
     cursor: pointer;
     text-decoration: none;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-mono), monospace;
+    font-size: 13px;
     transition: color var(--duration-fast) var(--ease);
 }
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.2.1"
+version = "0.2.2"
 
 repositories {
     mavenCentral()
@@ -69,6 +69,13 @@ intellijPlatform {
             </ol>
         """.trimIndent())
         changeNotes.set("""
+            <h3>0.2.2</h3>
+            <ul>
+              <li>Add slash command autocomplete in GUI mode — type <code>/</code> to search and select available commands and skills fetched from the OpenCode API</li>
+              <li>Fix ESC key in TUI mode — ESC is now sent directly to the terminal process instead of being consumed by IntelliJ</li>
+              <li>Fix lint warnings: CSS generic font-family fallbacks, redundant unit on zero, unused Kotlin import, and missing HTML accessibility label</li>
+            </ul>
+
             <h3>0.2.1</h3>
             <ul>
               <li>Auto-detect the OpenCode binary from PATH and common install locations when no explicit binary path is configured</li>
