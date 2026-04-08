@@ -59,6 +59,8 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 2. Detect the server URL from stdout
 3. Load the web UI in the embedded browser
 
+AgentellIJ now supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** keeps the existing JCEF-powered embedded web UI flow, which is useful when you prefer the browser-based experience.
+
 ### Keyboard Shortcuts
 
 All context actions share a single smart shortcut — the plugin automatically selects the appropriate action (file, lines, or directory) based on focus and selection state.
@@ -84,8 +86,11 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 
 **Settings > Tools > AgentellIJ**
 
+Use the **Mode** dropdown to choose how the tool window runs. Select **GUI** to keep the embedded browser experience, or **TUI** to open the agent in interactive terminal mode inside the tool window. The rest of the settings still apply in both modes, including custom binary path and additional CLI arguments.
+
 | Setting | Description | Default |
 |---|---|---|
+| Mode | Tool window runtime: interactive terminal (**TUI**) or embedded web UI (**GUI**) | `TUI` |
 | Agent binary path | Absolute path to the agent executable | _(empty — uses `opencode` from `PATH`)_ |
 | Additional arguments | Extra CLI args appended after the agent binary | _(empty)_ |
 
@@ -126,7 +131,9 @@ com.agentellij
 │   ├── AgentellIJSettings         # State: binary path, custom args
 │   └── AgentellIJConfigurable     # Settings UI panel
 ├── ui/                # Tool window and browser
-│   ├── ChatToolWindowFactory      # JCEF browser + backend orchestration
+│   ├── ChatToolWindowFactory      # Mode dispatcher (GUI vs TUI)
+│   ├── GuiModeContent             # JCEF browser + backend orchestration
+│   ├── TuiModeContent             # Terminal widget wrapper for interactive CLI
 │   └── OpenFilesTracker           # Syncs open/active files to agent
 └── util/              # Shared utilities
     └── SafeUtils                  # closeQuietly, runQuietly, resolveAbsolutePath

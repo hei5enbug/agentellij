@@ -25,12 +25,13 @@ interface AgentProfile {
     val binaryEnvVars: List<String>
 
     /**
-     * Build the full command arguments to launch the agent.
+     * Build the full command arguments to launch the agent for the requested mode.
+     *
      * @param binary resolved binary path
      * @param customArgs user-provided extra arguments (may be blank)
-     * @return full argument list (e.g. ["opencode", "serve", "--port", "3000"])
+     * @param mode launch mode identifier (for example, `"gui"` or `"tui"`)
      */
-    fun buildLaunchArgs(binary: String, customArgs: String): List<String>
+    fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String>
 
     /**
      * Regex to detect the server URL from agent stdout.

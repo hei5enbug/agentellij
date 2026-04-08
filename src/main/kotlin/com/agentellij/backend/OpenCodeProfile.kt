@@ -14,8 +14,11 @@ class OpenCodeProfile : AgentProfile {
     override val defaultBinary = "opencode"
     override val binaryEnvVars = listOf("OPENCODE_BIN")
 
-    override fun buildLaunchArgs(binary: String, customArgs: String): List<String> {
-        val args = mutableListOf(binary, "serve")
+    override fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String> {
+        val args = mutableListOf(binary)
+        if (mode.equals("gui", ignoreCase = true)) {
+            args += "serve"
+        }
         if (customArgs.isNotBlank()) {
             args.addAll(customArgs.split(" ").filter { it.isNotBlank() })
         }
