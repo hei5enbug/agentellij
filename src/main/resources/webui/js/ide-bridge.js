@@ -5,16 +5,26 @@ export class IdeBridgeClient {
     this.eventSource = null;
     this._handlers = null;
     this._msgId = 0;
+    this._reconnectTimer = null;
+    this._reconnectDelay = 2000;
+    this._maxReconnectDelay = 30000;
   }
 
   connect(handlers) {
     this._handlers = handlers;
+    this._reconnectDelay = 2000;
+    this._doConnect();
+  }
+
+  _doConnect() {
+    if (this.eventSource) this.eventSource.close();
 
     const url = `${this.baseUrl}/events?token=${encodeURIComponent(this.token)}`;
     this.eventSource = new EventSource(url);
 
     this.eventSource.addEventListener('connected', () => {
-      handlers.onConnected?.();
+      this._reconnectDelay = 2000;
+      this._handlers?.onConnected?.();
     });
 
     this.eventSource.addEventListener('message', (event) => {
@@ -25,7 +35,19 @@ export class IdeBridgeClient {
       }
     });
 
-    this.eventSource.onerror = () => {};
+    this.eventSource.onerror = () => {
+      this.eventSource.close();
+      this._scheduleReconnect();
+    };
+  }
+
+  _scheduleReconnect() {
+    if (this._reconnectTimer) return;
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this._reconnectDelay = Math.min(this._reconnectDelay * 2, this._maxReconnectDelay);
+      this._doConnect();
+    }, this._reconnectDelay);
   }
 
   _dispatch(data) {
@@ -39,9 +61,6 @@ export class IdeBridgeClient {
       case 'insertPaths':
         h.onInsertPaths?.(payload.paths || []);
         break;
-      case 'pastePath':
-        h.onPastePath?.(payload.path || '');
-        break;
       case 'updateOpenedFiles':
         h.onUpdateOpenedFiles?.(payload.openedFiles || [], payload.currentFile);
         break;
@@ -49,6 +68,10 @@ export class IdeBridgeClient {
   }
 
   disconnect() {
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;

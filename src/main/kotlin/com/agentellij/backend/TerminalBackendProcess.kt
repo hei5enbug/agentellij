@@ -19,7 +19,6 @@ import com.agentellij.util.runQuietly
  */
 class TerminalBackendProcess(
     private val widget: TerminalWidget,
-    private val command: String,
     private val outputBuffer: PipedOutputStream
 ) : BackendProcess {
     private val logger = Logger.getInstance(TerminalBackendProcess::class.java)
@@ -27,6 +26,13 @@ class TerminalBackendProcess(
     private val capturing = AtomicBoolean(true)
     private val pipedInput = PipedInputStream(outputBuffer)
     private var captureThread: Thread? = null
+
+    private val process: Process?
+        get() = runQuietly {
+            widget.ttyConnector?.let { ttyConnector ->
+                ShellTerminalWidget.getProcessTtyConnector(ttyConnector)?.process
+            }
+        }
 
     /** JediTerm widget for text buffer access — null if running the new block terminal. */
     private val jediTermWidget: JBTerminalWidget? = runQuietly {
@@ -42,28 +48,37 @@ class TerminalBackendProcess(
     private fun startCapture() {
         captureThread = Thread({
             var lastLength = 0
-            while (capturing.get() && alive.get()) {
-                try {
-                    val text = getTerminalText()
-                    if (text != null && text.length > lastLength) {
-                        val newContent = text.substring(lastLength)
-                        lastLength = text.length
-                        try {
-                            outputBuffer.write(newContent.toByteArray())
-                            outputBuffer.flush()
-                        } catch (e: Exception) {
-                            if (capturing.get()) logger.warn("Error writing to pipe", e)
-                            break
-                        }
+            try {
+                while (capturing.get() && alive.get()) {
+                    val terminalProcess = process
+                    if (terminalProcess != null && !terminalProcess.isAlive) {
+                        break
                     }
-                    Thread.sleep(200)
-                } catch (e: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    break
-                } catch (e: Exception) {
-                    logger.warn("Error capturing terminal output", e)
-                    try { Thread.sleep(500) } catch (_: InterruptedException) { break }
+
+                    try {
+                        val text = getTerminalText()
+                        if (text != null && text.length > lastLength) {
+                            val newContent = text.substring(lastLength)
+                            lastLength = text.length
+                            try {
+                                outputBuffer.write(newContent.toByteArray())
+                                outputBuffer.flush()
+                            } catch (e: Exception) {
+                                if (capturing.get()) logger.warn("Error writing to pipe", e)
+                                break
+                            }
+                        }
+                        Thread.sleep(200)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        break
+                    } catch (e: Exception) {
+                        logger.warn("Error capturing terminal output", e)
+                        try { Thread.sleep(500) } catch (_: InterruptedException) { break }
+                    }
                 }
+            } finally {
+                alive.set(false)
             }
         }, "agentellij-terminal-capture").apply { isDaemon = true }
         captureThread?.start()
@@ -102,9 +117,9 @@ class TerminalBackendProcess(
             // Try to destroy the underlying process directly
             val ttyConnector = widget.ttyConnector
             if (ttyConnector != null) {
-                val processTty = ShellTerminalWidget.getProcessTtyConnector(ttyConnector)
-                if (processTty != null) {
-                    runQuietly { processTty.process.destroy() }
+                val terminalProcess = process
+                if (terminalProcess != null) {
+                    runQuietly { terminalProcess.destroy() }
                 } else {
                     // Fallback: send Ctrl+C through the tty connector
                     runQuietly { ttyConnector.write("\u0003") }
@@ -117,5 +132,5 @@ class TerminalBackendProcess(
         pipedInput.closeQuietly()
     }
 
-    override fun isAlive(): Boolean = alive.get()
+    override fun isAlive(): Boolean = process?.isAlive ?: alive.get()
 }

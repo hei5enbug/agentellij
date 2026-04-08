@@ -10,12 +10,19 @@
     <div id="app">
         <header id="toolbar">
             <div class="toolbar-left">
-                <select id="session-select" title="Switch session">
-                    <option value="">No sessions</option>
-                </select>
+                <div class="session-dropdown" id="session-dropdown">
+                    <button class="session-trigger" id="session-trigger" title="Switch session">No sessions</button>
+                    <div class="session-panel" id="session-panel">
+                        <div class="session-list" id="session-list"></div>
+                        <div class="session-bulk-bar hidden" id="session-bulk-bar">
+                            <button class="session-bulk-delete" id="session-bulk-delete">Delete</button>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-new-session" title="New session">+</button>
             </div>
             <div class="toolbar-right">
+                <span id="context-usage" class="context-usage" title="Context window usage">— / —</span>
                 <span id="connection-status" class="status-dot" title="Disconnected"></span>
             </div>
         </header>
@@ -24,13 +31,9 @@
             <div id="messages-list"></div>
             <div id="empty-state" class="empty-state">
                 <p>Start a conversation with your AI agent.</p>
+                <p class="shortcut-hint">&#8984;+Enter to send</p>
             </div>
         </main>
-
-        <div id="context-bar" class="context-bar hidden">
-            <div class="context-bar-label">Context:</div>
-            <div id="context-files" class="context-files"></div>
-        </div>
 
         <div id="config-bar" class="config-bar">
             <div class="dropdown searchable" id="model-dropdown">
@@ -54,13 +57,12 @@
 
         <footer id="input-area">
             <div class="input-wrapper">
-                <textarea
-                    id="prompt-input"
-                    placeholder="Ask anything..."
-                    rows="1"
-                    autocomplete="off"
-                    spellcheck="true"
-                ></textarea>
+                <div class="input-box">
+                    <div id="prompt-input"
+                         contenteditable="true"
+                         data-placeholder="Ask anything..."
+                         spellcheck="true"></div>
+                </div>
                 <div class="input-actions">
                     <button id="btn-send" class="btn-primary" title="Send (⌘+Enter)">Send</button>
                     <button id="btn-abort" class="btn-danger hidden" title="Stop generation">Stop</button>

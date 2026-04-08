@@ -5,13 +5,16 @@ export class ChatUI {
     this.container = container;
     this.messagesList = container.querySelector('#messages-list');
     this.emptyState = container.querySelector('#empty-state');
-    this.sessionSelect = container.querySelector('#session-select');
+    this.sessionDropdown = container.querySelector('#session-dropdown');
+    this.sessionTrigger = container.querySelector('#session-trigger');
+    this.sessionPanel = container.querySelector('#session-panel');
+    this.sessionList = container.querySelector('#session-list');
+    this.sessionBulkBar = container.querySelector('#session-bulk-bar');
+    this.sessionBulkDelete = container.querySelector('#session-bulk-delete');
     this.btnNewSession = container.querySelector('#btn-new-session');
     this.btnSend = container.querySelector('#btn-send');
     this.btnAbort = container.querySelector('#btn-abort');
     this.promptInput = container.querySelector('#prompt-input');
-    this.contextBar = container.querySelector('#context-bar');
-    this.contextFiles = container.querySelector('#context-files');
     this.statusDot = container.querySelector('#connection-status');
     this.messagesContainer = container.querySelector('#messages');
     this.modelDropdown = container.querySelector('#model-dropdown');
@@ -30,33 +33,88 @@ export class ChatUI {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         this._callbacks.onSend?.();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
       }
     });
 
     this.promptInput.addEventListener('input', () => {
       this.promptInput.style.height = 'auto';
       const lineHeight = parseFloat(getComputedStyle(this.promptInput).lineHeight) || 20;
-      const maxHeight = lineHeight * 20;
-      this.promptInput.style.height = Math.min(this.promptInput.scrollHeight, maxHeight) + 'px';
+      const maxHeight = lineHeight * 10;
+      const newHeight = Math.min(this.promptInput.scrollHeight, maxHeight);
+      this.promptInput.style.height = newHeight + 'px';
+      this.promptInput.style.overflowY = this.promptInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
     });
 
     this.btnSend.addEventListener('click', () => this._callbacks.onSend?.());
     this.btnAbort.addEventListener('click', () => this._callbacks.onAbort?.());
     this.btnNewSession.addEventListener('click', () => this._callbacks.onNewSession?.());
-    this.sessionSelect.addEventListener('change', (e) => {
-      this._callbacks.onSessionSwitch?.(e.target.value);
+    this.sessionTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.sessionDropdown.classList.toggle('open');
+    });
+
+    this.sessionList.addEventListener('click', (e) => {
+      const checkbox = e.target.closest('.session-item-check');
+      if (checkbox) {
+        e.stopPropagation();
+        this._updateBulkBar();
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.session-item-delete');
+      if (deleteBtn) {
+        e.stopPropagation();
+        const sessionId = deleteBtn.closest('.session-item').dataset.sessionId;
+        this._callbacks.onDeleteSession?.(sessionId);
+        return;
+      }
+
+      const item = e.target.closest('.session-item');
+      if (item) {
+        e.stopPropagation();
+        const sessionId = item.dataset.sessionId;
+        this._callbacks.onSessionSwitch?.(sessionId);
+        this.sessionDropdown.classList.remove('open');
+      }
+    });
+
+    this.sessionBulkDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ids = this._getCheckedSessionIds();
+      if (ids.length > 0) {
+        this._callbacks.onBulkDeleteSessions?.(ids);
+      }
     });
     this._initDropdown(this.modelDropdown, (val) => this._callbacks.onModelChange?.(val));
     this._initDropdown(this.variantDropdown, (val) => this._callbacks.onVariantChange?.(val));
     this._initDropdown(this.agentDropdown, (val) => this._callbacks.onAgentChange?.(val));
 
     document.addEventListener('click', (e) => {
-      container.querySelectorAll('.dropdown.open').forEach((dd) => {
+      this.container.querySelectorAll('.dropdown.open').forEach((dd) => {
         if (!dd.contains(e.target)) dd.classList.remove('open');
       });
+      if (this.sessionDropdown && !this.sessionDropdown.contains(e.target)) {
+        this.sessionDropdown.classList.remove('open');
+      }
     });
 
     this.messagesList.addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('.btn-copy');
+      if (copyBtn) {
+        const pre = copyBtn.closest('.code-header')?.nextElementSibling;
+        const code = pre?.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+          }).catch(() => {});
+        }
+        return;
+      }
+
       const fileLink = e.target.closest('.file-link');
       if (fileLink) {
         e.preventDefault();
@@ -79,23 +137,50 @@ export class ChatUI {
   onNewSession(cb)    { this._callbacks.onNewSession = cb; }
   onSessionSwitch(cb) { this._callbacks.onSessionSwitch = cb; }
   onFileClick(cb)     { this._callbacks.onFileClick = cb; }
+  onDeleteSession(cb) { this._callbacks.onDeleteSession = cb; }
+  onBulkDeleteSessions(cb) { this._callbacks.onBulkDeleteSessions = cb; }
   onModelChange(cb)   { this._callbacks.onModelChange = cb; }
   onVariantChange(cb) { this._callbacks.onVariantChange = cb; }
   onAgentChange(cb)   { this._callbacks.onAgentChange = cb; }
 
   renderSessionList(sessions, currentId) {
-    this.sessionSelect.innerHTML = '';
+    this.sessionList.innerHTML = '';
+    this.sessionBulkBar.classList.add('hidden');
+
     if (!sessions || sessions.length === 0) {
-      this.sessionSelect.innerHTML = '<option value="">No sessions</option>';
+      this.sessionTrigger.textContent = 'No sessions';
+      this.sessionList.innerHTML = '<div class="session-empty">No sessions</div>';
       return;
     }
+    const current = sessions.find(s => s.id === currentId);
+    this.sessionTrigger.textContent = current ? (current.title || current.id.substring(0, 8)) : sessions[0].title || sessions[0].id.substring(0, 8);
+
     sessions.forEach((s) => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.title || s.id.substring(0, 8);
-      if (s.id === currentId) opt.selected = true;
-      this.sessionSelect.appendChild(opt);
+      const item = document.createElement('div');
+      item.className = 'session-item' + (s.id === currentId ? ' active' : '');
+      item.dataset.sessionId = s.id;
+      item.innerHTML = `
+          <input type="checkbox" class="session-item-check" title="Select for deletion">
+          <span class="session-item-title">${this._escapeHtml(s.title || s.id.substring(0, 8))}</span>
+          <button class="session-item-delete" title="Delete session">&times;</button>
+      `;
+      this.sessionList.appendChild(item);
     });
+  }
+
+  _getCheckedSessionIds() {
+    return [...this.sessionList.querySelectorAll('.session-item-check:checked')]
+      .map(cb => cb.closest('.session-item').dataset.sessionId);
+  }
+
+  _updateBulkBar() {
+    const count = this._getCheckedSessionIds().length;
+    if (count > 0) {
+      this.sessionBulkBar.classList.remove('hidden');
+      this.sessionBulkDelete.textContent = `Delete (${count})`;
+    } else {
+      this.sessionBulkBar.classList.add('hidden');
+    }
   }
 
   _initDropdown(dropdown, onChange) {
@@ -352,13 +437,21 @@ export class ChatUI {
       this.messagesList.appendChild(card);
     }
 
-    const content = card.querySelector('.message-content');
     if (!card._rawText) card._rawText = '';
     card._rawText += delta;
-    content.innerHTML = renderMarkdown(card._rawText);
-    content.classList.add('streaming-cursor');
 
-    if (!this._userScrolledUp) this.scrollToBottom();
+    if (!card._renderPending) {
+      card._renderPending = true;
+      requestAnimationFrame(() => {
+        card._renderPending = false;
+        const content = card.querySelector('.message-content');
+        if (content && card._rawText) {
+          content.innerHTML = renderMarkdown(card._rawText);
+          content.classList.add('streaming-cursor');
+        }
+        if (!this._userScrolledUp) this.scrollToBottom();
+      });
+    }
   }
 
   finalizeMessage(messageId, message) {
@@ -393,23 +486,61 @@ export class ChatUI {
     if (statusEl) statusEl.textContent = statusIcon[status] || '\u23F3';
   }
 
-  showContextFiles(files) {
-    if (!files || files.length === 0) {
-      this.contextBar.classList.add('hidden');
+  insertChipAtCursor(path) {
+    const chip = document.createElement('span');
+    chip.className = 'context-chip';
+    chip.contentEditable = 'false';
+    chip.dataset.path = path;
+    chip.title = path;
+    const name = path.split('/').pop();
+    chip.innerHTML = `${this._escapeHtml(name)}<span class="context-chip-remove">&times;</span>`;
+    chip.querySelector('.context-chip-remove').addEventListener('click', () => chip.remove());
+
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && this.promptInput.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(chip);
+      const space = document.createTextNode('\u00A0');
+      chip.after(space);
+      range.setStartAfter(space);
+      range.setEndAfter(space);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      this.promptInput.appendChild(chip);
+      const space = document.createTextNode('\u00A0');
+      this.promptInput.appendChild(space);
+    }
+  }
+
+  updateContextUsage(current, max) {
+    const el = this.container.querySelector('#context-usage');
+    if (!el) return;
+
+    if (!current && !max) {
+      el.textContent = '— / —';
+      el.className = 'context-usage';
+      el.title = 'Context window usage';
       return;
     }
-    this.contextBar.classList.remove('hidden');
-    this.contextFiles.innerHTML = '';
-    files.forEach((f) => {
-      const el = document.createElement('span');
-      el.className = 'context-file';
-      const name = f.split('/').pop();
-      el.innerHTML = `${this._escapeHtml(name)} <span class="context-file-remove" data-path="${this._escapeHtml(f)}">\u00D7</span>`;
-      el.querySelector('.context-file-remove').addEventListener('click', () => {
-        this._callbacks.onRemoveContextFile?.(f);
-      });
-      this.contextFiles.appendChild(el);
-    });
+
+    const fmt = (n) => {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return Math.round(n / 1000) + 'k';
+      return n.toString();
+    };
+
+    if (max > 0) {
+      const pct = Math.round((current / max) * 100);
+      el.textContent = `${fmt(current)} / ${fmt(max)}`;
+      el.title = `Context: ${current.toLocaleString()} / ${max.toLocaleString()} tokens (${pct}%)`;
+      el.className = 'context-usage' + (pct > 90 ? ' danger' : pct > 75 ? ' warning' : '');
+    } else {
+      el.textContent = fmt(current);
+      el.title = `${current.toLocaleString()} tokens used`;
+      el.className = 'context-usage';
+    }
   }
 
   showConnectionStatus(status) {
@@ -435,12 +566,33 @@ export class ChatUI {
     });
   }
 
-  getInputText()       { return this.promptInput.value; }
-  clearInput()         { this.promptInput.value = ''; this.promptInput.style.height = 'auto'; }
-  focusInput()         { this.promptInput.focus(); }
+  getInputText() {
+    let text = '';
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if (node.classList?.contains('context-chip')) {
+        text += `@${node.dataset.path}`;
+      } else if (node.tagName === 'BR') {
+        text += '\n';
+      } else {
+        node.childNodes.forEach(walk);
+        if (node.tagName === 'DIV' || node.tagName === 'P') text += '\n';
+      }
+    };
+    this.promptInput.childNodes.forEach(walk);
+    return text;
+  }
+
+  clearInput() {
+    this.promptInput.innerHTML = '';
+    this.promptInput.style.height = 'auto';
+  }
+
+  focusInput() { this.promptInput.focus(); }
 
   setInputEnabled(enabled) {
-    this.promptInput.disabled = !enabled;
+    this.promptInput.contentEditable = enabled ? 'true' : 'false';
     this.btnSend.disabled = !enabled;
   }
 

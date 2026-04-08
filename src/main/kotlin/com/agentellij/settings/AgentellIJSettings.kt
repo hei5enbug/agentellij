@@ -13,6 +13,7 @@ import com.intellij.openapi.components.Storage
 @Service
 class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
     data class State(
+        var mode: String = "tui",
         var agentPath: String = "",
         var customArgs: String = ""
     )
@@ -22,10 +23,18 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
     override fun getState(): State = myState
 
     override fun loadState(state: State) {
-        myState = state
+        myState = state.copy(mode = normalizeMode(state.mode))
     }
 
+    fun getMode(): String = normalizeMode(state.mode)
+
     companion object {
+        fun normalizeMode(mode: String?): String =
+            when (mode?.lowercase()) {
+                "gui", "tui" -> mode.lowercase()
+                else -> "tui"
+            }
+
         fun getInstance(): AgentellIJSettings =
             ApplicationManager.getApplication().getService(AgentellIJSettings::class.java)
     }

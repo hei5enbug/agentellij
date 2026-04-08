@@ -41,6 +41,10 @@ export class OpenCodeApi {
     return this._fetch('/session');
   }
 
+  async deleteSession(sessionId) {
+    return this._fetch(`/session/${sessionId}`, { method: 'DELETE' });
+  }
+
   async getSessionMessages(sessionId) {
     return this._fetch(`/session/${sessionId}/message`);
   }
@@ -136,6 +140,11 @@ export class OpenCodeApi {
       case 'session.updated': {
         const info = props.info || {};
         h.onSessionUpdated?.(info.id, info);
+        break;
+      }
+      case 'session.deleted': {
+        const info = props.info || {};
+        h.onSessionDeleted?.(props.sessionID || info.id);
         break;
       }
       case 'server.heartbeat':

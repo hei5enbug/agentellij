@@ -19,8 +19,8 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import java.io.File
 
 class MessageHandler(private val mapper: ObjectMapper) {
-    private val LOG = Logger.getInstance(MessageHandler::class.java)
-    private val profile = com.agentellij.backend.AgentProfileResolver.resolve()
+    private val LOG by lazy { Logger.getInstance(MessageHandler::class.java) }
+    private val profile by lazy { com.agentellij.backend.AgentProfileResolver.resolve() }
 
     private val statePath: File?
         get() = profile.statePath

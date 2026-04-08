@@ -109,7 +109,7 @@ class IdeBridgeStaticServingTest {
 
     @Test
     fun `path traversal with backslash returns 404`() {
-        val (code, _) = get("/ui/js\\..\\..\\META-INF\\plugin.xml")
+        val (code, _) = get("/ui/js%5C..%5C..%5CMETA-INF%5Cplugin.xml")
         assertEquals(404, code)
     }
 }
