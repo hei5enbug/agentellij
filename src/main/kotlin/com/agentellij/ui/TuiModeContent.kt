@@ -4,19 +4,25 @@ import com.agentellij.backend.BackendLauncher
 import com.agentellij.util.resolveAbsolutePath
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.terminal.ui.TerminalWidget
+import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.awt.BorderLayout
+import java.awt.event.KeyEvent
 import java.io.File
 import java.util.Collections
 import java.util.WeakHashMap
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.KeyStroke
 
 class TuiModeContent(
     private val project: Project,
@@ -59,8 +65,11 @@ class TuiModeContent(
         }
 
         val terminalWidget = try {
-            TerminalToolWindowManager.getInstance(project)
-                .createShellWidget(baseDir, "AgentellIJ TUI", false, true)
+            val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+            val options = ShellStartupOptions.Builder()
+                .workingDirectory(baseDir)
+                .build()
+            runner.startShellTerminalWidget(toolWindow.disposable, options, true)
         } catch (e: Exception) {
             logger.warn("Failed to create terminal widget", e)
             showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")
@@ -71,6 +80,18 @@ class TuiModeContent(
         mainPanel.add(terminalWidget.component, BorderLayout.CENTER)
         mainPanel.revalidate()
         mainPanel.repaint()
+
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) {
+                terminalWidget.ttyConnector?.let { connector ->
+                    runQuietly { connector.write("\u001B") }
+                }
+            }
+        }.registerCustomShortcutSet(
+            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0)),
+            terminalWidget.component,
+            toolWindow.disposable
+        )
 
         Disposer.register(toolWindow.disposable) {
             widgets.remove(project)

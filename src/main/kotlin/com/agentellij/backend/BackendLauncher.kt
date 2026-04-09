@@ -9,6 +9,7 @@ import java.io.PipedOutputStream
 
 object BackendLauncher {
     private val logger = Logger.getInstance(BackendLauncher::class.java)
+    private val isWindows = System.getProperty("os.name").lowercase().contains("win")
 
     const val MODE_GUI = "gui"
     const val MODE_TUI = "tui"
@@ -127,17 +128,7 @@ object BackendLauncher {
     }
 
     private fun scanCommonPaths(binaryName: String): String? {
-        val home = System.getProperty("user.home") ?: return null
-        val nvmDir = System.getenv("NVM_DIR") ?: "$home/.nvm"
-
-        val searchPaths = listOf(
-            "$home/.local/bin",
-            "$home/.npm-global/bin",
-            "$nvmDir/current/bin"
-        )
-
-        for (dir in searchPaths) {
-            val candidate = java.io.File(dir, binaryName)
+        for (candidate in binaryCandidates(binaryName)) {
             if (candidate.exists() && candidate.canExecute()) {
                 return candidate.absolutePath
             }
@@ -163,7 +154,63 @@ object BackendLauncher {
             val envVal = System.getenv(envVar)
             if (!envVal.isNullOrBlank() && java.io.File(envVal).canExecute()) return envVal
         }
+
+        val discoveredBinary = discoverBinary(profile.defaultBinary)
+        if (settingsPath.isEmpty() && discoveredBinary != null) {
+            settings.state.agentPath = discoveredBinary
+            logger.info("Auto-detected ${profile.displayName} binary at: $discoveredBinary")
+            return discoveredBinary
+        }
+
         return profile.defaultBinary
+    }
+
+    private fun discoverBinary(binaryName: String): String? {
+        val resolvedFromPath = resolveAbsolutePath(binaryName)
+        if (resolvedFromPath != binaryName) {
+            val resolvedFile = java.io.File(resolvedFromPath)
+            if (resolvedFile.exists() && resolvedFile.canExecute()) {
+                return resolvedFile.absolutePath
+            }
+        }
+
+        return scanCommonPaths(binaryName)
+    }
+
+    private fun binaryCandidates(binaryName: String): Sequence<java.io.File> {
+        val home = System.getProperty("user.home").orEmpty()
+        val nvmDir = System.getenv("NVM_DIR").orEmpty().ifBlank { "$home/.nvm" }
+        val installDir = System.getenv("OPENCODE_INSTALL_DIR").orEmpty()
+        val xdgBinDir = System.getenv("XDG_BIN_DIR").orEmpty()
+        val localAppData = System.getenv("LOCALAPPDATA").orEmpty()
+        val appData = System.getenv("APPDATA").orEmpty()
+        val userProfile = System.getenv("USERPROFILE").orEmpty().ifBlank { home }
+        val suffixes = if (isWindows) listOf(".exe", ".cmd", ".bat", "") else listOf("")
+
+        val searchDirs = linkedSetOf(
+            installDir,
+            xdgBinDir,
+            "$home/bin",
+            "$home/.opencode/bin",
+            "$home/.local/bin",
+            "$home/.npm-global/bin",
+            "$nvmDir/current/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "$appData/npm",
+            "$localAppData/npm",
+            "$userProfile/scoop/shims",
+            "C:/ProgramData/chocolatey/bin"
+        ).filter { it.isNotBlank() }
+
+        return sequence {
+            for (dir in searchDirs) {
+                for (suffix in suffixes) {
+                    yield(java.io.File(dir, "$binaryName$suffix"))
+                }
+            }
+        }
     }
 
 }

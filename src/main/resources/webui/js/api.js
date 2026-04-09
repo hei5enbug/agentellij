@@ -77,6 +77,10 @@ export class OpenCodeApi {
     return this._fetch('/config');
   }
 
+  async getCommands() {
+    return this._fetch('/command');
+  }
+
   connectEvents(handlers) {
     this._handlers = handlers;
     this._reconnectDelay = 1000;
@@ -147,11 +151,15 @@ export class OpenCodeApi {
         h.onSessionDeleted?.(props.sessionID || info.id);
         break;
       }
+      case 'session.status':
+        h.onSessionStatus?.(props.sessionID, props.status);
+        break;
+      case 'session.idle':
+        h.onSessionIdle?.(props.sessionID);
+        break;
       case 'server.heartbeat':
       case 'server.connected':
-      case 'session.status':
       case 'session.diff':
-      case 'session.idle':
         break;
       default:
         console.debug('Unknown SSE event:', type);

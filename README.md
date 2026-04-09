@@ -12,7 +12,7 @@ AgentellIJ embeds AI coding agents directly into your IDE. No terminal switching
 
 Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude Code**, **Codex**, and other terminal-based AI coding agents.
 
-![AgentellIJ Screenshot](docs/media/media-screenshot-2.png)
+![AgentellIJ Screenshot](docs/media/media-screenshot-1.png)
 
 ## Features
 
@@ -72,11 +72,11 @@ All context actions share a single smart shortcut — the plugin automatically s
 ### Context Menu Actions
 
 Right-click in the **editor** or **editor tab**:
-- **AgentellIJ: Add File to Context** — Sends the full file path
-- **AgentellIJ: Add Lines to Context** — Sends the file path with line range (e.g., `src/Main.kt:10-25`)
+- **AgentellIJ: Add File to Context** — Sends the full file path. The same shortcut (`Ctrl+Shift+I` / `Cmd+Shift+I`) triggers this when the editor or tab is focused without a text selection.
+- **AgentellIJ: Add Lines to Context** — Sends the file path with line range (e.g., `src/Main.kt:10-25`). The same shortcut triggers this when text is selected in the editor.
 
 Right-click in the **Project tree**:
-- **AgentellIJ: Add to Context** — Sends selected file(s) or directory
+- **AgentellIJ: Add to Context** — Sends selected file(s) or directory. The same shortcut triggers this when focus is in the project tree.
 
 ### Drag & Drop
 
@@ -91,7 +91,7 @@ Use the **Mode** dropdown to choose how the tool window runs. Select **GUI** to 
 | Setting | Description | Default |
 |---|---|---|
 | Mode | Tool window runtime: interactive terminal (**TUI**) or embedded web UI (**GUI**) | `TUI` |
-| Agent binary path | Absolute path to the agent executable | _(empty — uses `opencode` from `PATH`)_ |
+| Agent binary path | Absolute path to the agent executable | _(empty — auto-detects `opencode` from `PATH` or common install locations)_ |
 | Additional arguments | Extra CLI args appended after the agent binary | _(empty)_ |
 
 ### Environment Variables
@@ -101,7 +101,7 @@ Use the **Mode** dropdown to choose how the tool window runs. Select **GUI** to 
 | `AGENTELLIJ_BIN` | Path to the agent binary (overrides `PATH` lookup) |
 | `OPENCODE_BIN` | Legacy fallback for OpenCode users |
 
-**Resolution order:** Settings > `AGENTELLIJ_BIN` > `OPENCODE_BIN` > `opencode` from `PATH`
+**Resolution order:** Settings > `AGENTELLIJ_BIN` > `OPENCODE_BIN` > discovered `opencode` absolute path (`PATH` first, then common install locations) > `opencode`
 
 ## Architecture
 
