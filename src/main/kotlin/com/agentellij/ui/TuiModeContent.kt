@@ -29,7 +29,8 @@ import javax.swing.SwingUtilities
 
 class TuiModeContent(
     private val project: Project,
-    private val toolWindow: ToolWindow
+    private val toolWindow: ToolWindow,
+    private val parentDisposable: Disposable = toolWindow.disposable
 ) {
     companion object {
         private val logger = Logger.getInstance(TuiModeContent::class.java)
@@ -72,7 +73,7 @@ class TuiModeContent(
             val options = ShellStartupOptions.Builder()
                 .workingDirectory(baseDir)
                 .build()
-            runner.startShellTerminalWidget(toolWindow.disposable, options, true)
+            runner.startShellTerminalWidget(parentDisposable, options, true)
         } catch (e: Exception) {
             logger.warn("Failed to create terminal widget", e)
             showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")
@@ -113,11 +114,11 @@ class TuiModeContent(
             false
         }
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
-        Disposer.register(toolWindow.disposable) {
+        Disposer.register(parentDisposable) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
         }
 
-        Disposer.register(toolWindow.disposable) {
+        Disposer.register(parentDisposable) {
             widgets.remove(project)
             destroyTerminalProcess(terminalWidget)
             runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }

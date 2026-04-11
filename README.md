@@ -17,6 +17,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 ## Features
 
 - **Embedded Chat UI** — Agent's web interface rendered inside IntelliJ via JCEF (Chromium)
+- **TUI & GUI Modes** — Switch between terminal and browser-based UI instantly via the toolbar toggle button
 - **Real-Time Sync** — Open files, active editor, and selections are automatically pushed to the agent
 - **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree (`Ctrl+Shift+I` / `Cmd+Shift+I`)
 - **Drag & Drop** — Drop files from the project tree directly into the chat
@@ -59,7 +60,9 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 2. Detect the server URL from stdout
 3. Load the web UI in the embedded browser
 
-AgentellIJ now supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** keeps the existing JCEF-powered embedded web UI flow, which is useful when you prefer the browser-based experience.
+AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** uses the JCEF-powered embedded web UI.
+
+You can switch between modes at any time using the toggle button in the tool window toolbar — no restart required.
 
 ### Keyboard Shortcuts
 
@@ -86,7 +89,7 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 
 **Settings > Tools > AgentellIJ**
 
-Use the **Mode** dropdown to choose how the tool window runs. Select **GUI** to keep the embedded browser experience, or **TUI** to open the agent in interactive terminal mode inside the tool window. The rest of the settings still apply in both modes, including custom binary path and additional CLI arguments.
+Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
 
 | Setting | Description | Default |
 |---|---|---|

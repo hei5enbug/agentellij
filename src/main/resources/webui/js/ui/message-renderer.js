@@ -16,10 +16,12 @@ function appendMessageCard(ui, msg) {
   card.className = `message ${msgRole}`;
   card.dataset.messageId = msgId;
 
-  const roleEl = document.createElement('div');
-  roleEl.className = 'message-role';
-  roleEl.textContent = msgRole === 'user' ? 'You' : `AgentelliJ - ${ui.agentName}`;
-  card.appendChild(roleEl);
+  if (msgRole === 'user') {
+    const roleEl = document.createElement('div');
+    roleEl.className = 'message-role';
+    roleEl.textContent = 'Prompt';
+    card.appendChild(roleEl);
+  }
 
   const content = document.createElement('div');
   content.className = 'message-content';
@@ -32,8 +34,12 @@ function appendMessageCard(ui, msg) {
   if (content.children.length === 0 && content.innerHTML === '' && msg.content) {
     content.innerHTML = renderMarkdown(msg.content);
   }
+  if (msgRole !== 'user' && content.children.length === 0 && content.innerHTML === '') {
+    return;
+  }
 
   card.appendChild(content);
+
   ui.messagesList.appendChild(card);
 }
 
@@ -129,14 +135,7 @@ function createToolCallCard(ui, part) {
   const body = buildToolBody(part);
 
   if (!body) {
-    const card = document.createElement('div');
-    card.className = `part-collapsible tool-call ${status}`;
-    card.dataset.partId = part.id || '';
-    const header = document.createElement('div');
-    header.className = 'part-summary no-expand';
-    header.innerHTML = toolSummaryHtml(icon, toolName, hint);
-    card.appendChild(header);
-    return card;
+    return null;
   }
 
   const details = document.createElement('details');
@@ -152,6 +151,7 @@ function createToolCallCard(ui, part) {
 
 function createThinkingCard(part) {
   const text = part.thinking || part.text || part.content || '';
+  if (!text) return null;
 
   const details = document.createElement('details');
   details.className = 'part-collapsible part-thinking';
@@ -161,18 +161,17 @@ function createThinkingCard(part) {
   summary.textContent = '\uD83D\uDCA1 Thinking';
   details.appendChild(summary);
 
-  if (text) {
-    const body = document.createElement('div');
-    body.className = 'part-body';
-    body.innerHTML = renderMarkdown(text);
-    details.appendChild(body);
-  }
+  const body = document.createElement('div');
+  body.className = 'part-body';
+  body.innerHTML = renderMarkdown(text);
+  details.appendChild(body);
 
   return details;
 }
 
 function createToolResultCard(part) {
   const content = part.content || part.output || part.text || '';
+  if (!content) return null;
 
   const details = document.createElement('details');
   details.className = 'part-collapsible part-tool-result';
@@ -182,13 +181,11 @@ function createToolResultCard(part) {
   summary.textContent = '\uD83D\uDCCB Tool Result';
   details.appendChild(summary);
 
-  if (content) {
-    const body = document.createElement('div');
-    body.className = 'part-body';
-    const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-    body.innerHTML = `<pre class="part-pre">${escapeHtml(formatted)}</pre>`;
-    details.appendChild(body);
-  }
+  const body = document.createElement('div');
+  body.className = 'part-body';
+  const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+  body.innerHTML = `<pre class="part-pre">${escapeHtml(formatted)}</pre>`;
+  details.appendChild(body);
 
   return details;
 }
@@ -197,6 +194,8 @@ function createFilePart(part) {
   const name = part.filename || part.name || part.path || 'file';
   const mime = part.mimeType || part.mediaType || '';
   const url = part.url || part.data || '';
+  const content = part.content || part.text || url;
+  if (!content) return null;
 
   const details = document.createElement('details');
   details.className = 'part-collapsible part-file';
@@ -207,14 +206,11 @@ function createFilePart(part) {
   if (mime) summary.innerHTML += ` <span class="tool-call-hint">${escapeHtml(mime)}</span>`;
   details.appendChild(summary);
 
-  if (url || part.content || part.text) {
-    const body = document.createElement('div');
-    body.className = 'part-body';
-    const content = part.content || part.text || url;
-    const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-    body.innerHTML = `<pre class="part-pre">${escapeHtml(formatted)}</pre>`;
-    details.appendChild(body);
-  }
+  const body = document.createElement('div');
+  body.className = 'part-body';
+  const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+  body.innerHTML = `<pre class="part-pre">${escapeHtml(formatted)}</pre>`;
+  details.appendChild(body);
 
   return details;
 }
@@ -223,6 +219,7 @@ function createSubtaskPart(part) {
   const agent = part.agent || 'subtask';
   const desc = part.description || '';
   const prompt = part.prompt || '';
+  if (!prompt && !desc) return null;
 
   const details = document.createElement('details');
   details.className = 'part-collapsible part-subtask';
@@ -246,39 +243,41 @@ function createSubtaskPart(part) {
 function createPatchPart(part) {
   const filePath = part.filePath || part.path || part.file || '';
   const diff = part.content || part.patch || part.diff || part.text || '';
+  if (!diff) return null;
 
   const details = document.createElement('details');
   details.className = 'part-collapsible part-patch';
 
   const summary = document.createElement('summary');
   summary.className = 'part-summary';
-  const label = filePath ? filePath : 'patch';
+  const label = filePath ? filePath : 'Patch';
   summary.innerHTML = `\u270F\uFE0F <span class="tool-call-name">${escapeHtml(label)}</span>`;
   details.appendChild(summary);
 
-  if (diff) {
-    const body = document.createElement('div');
-    body.className = 'part-body';
-    body.innerHTML = `<pre class="part-pre">${escapeHtml(diff)}</pre>`;
-    details.appendChild(body);
-  }
+  const body = document.createElement('div');
+  body.className = 'part-body';
+  body.innerHTML = `<pre class="part-pre">${escapeHtml(diff)}</pre>`;
+  details.appendChild(body);
 
   return details;
 }
 
 function createGenericPartCard(part) {
+  const raw = { ...part };
+  delete raw.type;
+  if (Object.keys(raw).length === 0) return null;
+
   const details = document.createElement('details');
   details.className = 'part-collapsible part-generic';
 
   const summary = document.createElement('summary');
   summary.className = 'part-summary';
-  summary.textContent = part.type;
+  const typeName = part.type || 'Unknown';
+  summary.textContent = typeName.charAt(0).toUpperCase() + typeName.slice(1);
   details.appendChild(summary);
 
   const body = document.createElement('div');
   body.className = 'part-body';
-  const raw = { ...part };
-  delete raw.type;
   body.innerHTML = `<pre class="part-pre">${escapeHtml(JSON.stringify(raw, null, 2))}</pre>`;
   details.appendChild(body);
 
@@ -306,11 +305,6 @@ export function renderAssistantMessage(ui, messageId, parts) {
     card = document.createElement('div');
     card.className = 'message assistant';
     card.dataset.messageId = messageId;
-
-    const role = document.createElement('div');
-    role.className = 'message-role';
-    role.textContent = `AgentelliJ - ${ui.agentName}`;
-    card.appendChild(role);
 
     const content = document.createElement('div');
     content.className = 'message-content';
@@ -341,11 +335,6 @@ export function appendStreamDelta(ui, messageId, partId, delta) {
     card = document.createElement('div');
     card.className = 'message assistant';
     card.dataset.messageId = messageId;
-
-    const role = document.createElement('div');
-    role.className = 'message-role';
-    role.textContent = `AgentelliJ - ${ui.agentName}`;
-    card.appendChild(role);
 
     const content = document.createElement('div');
     content.className = 'message-content streaming-cursor';

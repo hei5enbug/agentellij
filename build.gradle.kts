@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.2.2"
+version = "0.2.3"
 
 repositories {
     mavenCentral()
@@ -69,6 +69,16 @@ intellijPlatform {
             </ol>
         """.trimIndent())
         changeNotes.set("""
+            <h3>0.2.3</h3>
+            <ul>
+              <li>Add live GUI/TUI mode switching via toolbar toggle button — no restart required</li>
+              <li>Remove backend log panel from GUI mode for a cleaner interface</li>
+              <li>Hide empty collapsible message parts (Thinking, Tool Result, Patch, etc.)</li>
+              <li>Show role label only for user messages; suppress empty assistant messages</li>
+              <li>Normalize font sizes: 14px for message area, 13px for surrounding UI</li>
+              <li>Tighten message spacing: padding and part-card margins minimized</li>
+            </ul>
+
             <h3>0.2.2</h3>
             <ul>
               <li>Add slash command autocomplete in GUI mode — type <code>/</code> to search and select available commands and skills fetched from the OpenCode API</li>
