@@ -16,6 +16,8 @@ import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.awt.BorderLayout
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 import java.io.File
 import java.util.Collections
@@ -23,6 +25,7 @@ import java.util.WeakHashMap
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.KeyStroke
+import javax.swing.SwingUtilities
 
 class TuiModeContent(
     private val project: Project,
@@ -92,6 +95,27 @@ class TuiModeContent(
             terminalWidget.component,
             toolWindow.disposable
         )
+
+        val escapeDispatcher = KeyEventDispatcher { event ->
+            if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
+            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (!toolWindow.isVisible) return@KeyEventDispatcher false
+
+            val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return@KeyEventDispatcher false
+            if (!SwingUtilities.isDescendingFrom(focusOwner, terminalWidget.component)) return@KeyEventDispatcher false
+
+            terminalWidget.ttyConnector?.let { connector ->
+                runQuietly { connector.write("\u001B") }
+                event.consume()
+                return@KeyEventDispatcher true
+            }
+
+            false
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
+        Disposer.register(toolWindow.disposable) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
+        }
 
         Disposer.register(toolWindow.disposable) {
             widgets.remove(project)

@@ -11,4 +11,3 @@ data class BridgeSession(
     val sseClients: MutableSet<HttpExchange> = Collections.synchronizedSet(mutableSetOf())
 )
 
-data class SessionInfo(val baseUrl: String, val token: String, val sessionId: String)

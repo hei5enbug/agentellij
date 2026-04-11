@@ -1,25 +1,12 @@
-import { OpenCodeApi } from './api.js';
-import { IdeBridgeClient } from './ide-bridge.js';
-import { ChatUI } from './ui.js';
-
-const state = {
-  sessions: [],
-  currentSessionId: null,
-  messages: new Map(),
-  isStreaming: false,
-
-  openFiles: [],
-  currentFile: null,
-  providers: [],
-  allModels: [],
-  agents: [],
-  selectedModel: null,
-  selectedVariant: '',
-  selectedAgent: '',
-  currentModelVariants: [],
-};
+import { OpenCodeApi } from './core/api.js';
+import { IdeBridgeClient } from './core/ide-bridge.js';
+import { ChatUI } from './ui/chat-ui.js';
+import { state, trimMessageCache } from './core/state.js';
+import { createSessionController } from './features/session-controller.js';
+import { createConfigController } from './features/config-controller.js';
 
 let api, bridge, ui;
+let sessionCtrl, configCtrl;
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -27,25 +14,18 @@ async function init() {
   const ideBridgeUrl = params.get('ideBridge');
   const ideBridgeToken = params.get('ideBridgeToken');
   const agentName = params.get('agentName') || 'Agent';
-
-  if (!opencodeApiUrl) {
-    return;
-  }
-
+  if (!opencodeApiUrl) return;
   api = new OpenCodeApi(opencodeApiUrl);
   ui = new ChatUI(document.getElementById('app'), { agentName });
-
-  if (ideBridgeUrl && ideBridgeToken) {
-    bridge = new IdeBridgeClient(ideBridgeUrl, ideBridgeToken);
-  }
-
+  if (ideBridgeUrl && ideBridgeToken) bridge = new IdeBridgeClient(ideBridgeUrl, ideBridgeToken);
+  configCtrl = createConfigController({ api, ui });
+  sessionCtrl = createSessionController({ api, ui, refreshContextUsage: configCtrl.refreshContextUsage });
   wireUICallbacks();
   connectStreams();
-
   try {
-    await loadSessions();
-    await loadConfig();
-  } catch (e) {
+    await sessionCtrl.loadSessions();
+    await configCtrl.loadConfig();
+  } catch (_) {
     ui.showError('Failed to connect to OpenCode. Is it running?');
   }
 }
@@ -53,100 +33,67 @@ async function init() {
 function wireUICallbacks() {
   ui.onSend(handleSend);
   ui.onAbort(handleAbort);
-  ui.onNewSession(handleNewSession);
-  ui.onSessionSwitch(handleSessionSwitch);
-  ui.onDeleteSession(handleDeleteSession);
-  ui.onBulkDeleteSessions(handleBulkDeleteSessions);
+  ui.onNewSession(() => sessionCtrl.handleNewSession());
+  ui.onSessionSwitch((id) => sessionCtrl.handleSessionSwitch(id));
+  ui.onDeleteSession((id) => sessionCtrl.handleDeleteSession(id));
+  ui.onBulkDeleteSessions((ids) => sessionCtrl.handleBulkDeleteSessions(ids));
   ui.onFileClick(handleFileClick);
-  ui.onModelChange(handleModelChange);
-  ui.onVariantChange(handleVariantChange);
-  ui.onAgentChange(handleAgentChange);
-
+  ui.onModelChange((val) => configCtrl.handleModelChange(val));
+  ui.onVariantChange((val) => configCtrl.handleVariantChange(val));
+  ui.onAgentChange((val) => configCtrl.handleAgentChange(val));
 }
 
 function connectStreams() {
   api.connectEvents({
-    onConnected: () => {
-      ui.showConnectionStatus('connected');
-    },
-    onMessageDelta: (sessionId, messageId, partId, delta) => {
-      if (sessionId !== state.currentSessionId) return;
-      state.isStreaming = true;
-      ui.setStreaming(true);
-      ui.appendStreamDelta(messageId, partId, delta);
-    },
-    onMessagePartUpdated: (sessionId, messageId, part) => {
-      if (sessionId !== state.currentSessionId) return;
-      const status = part?.state || part?.status || 'running';
-      ui.updateToolCallStatus(messageId, part?.id, status, part);
-    },
+    onConnected: () => ui.showConnectionStatus('connected'),
+    onMessageDelta: (sessionId, messageId, partId, delta) => { if (sessionId !== state.currentSessionId) return; state.isStreaming = true; ui.setStreaming(true); ui.appendStreamDelta(messageId, partId, delta); },
+    onMessagePartUpdated: (sessionId, messageId, part) => { if (sessionId !== state.currentSessionId) return; ui.updateToolCallStatus(messageId, part?.id, part?.state || part?.status || 'running', part); },
     onMessageUpdated: (sessionId, messageId, message) => {
-      if (sessionId !== state.currentSessionId) return;
-      if (message?.role !== 'assistant') return;
+      if (sessionId !== state.currentSessionId || message?.role !== 'assistant') return;
       if (message?.agent) ui.setAgentName(message.agent);
       if (!message?.time?.completed) return;
       ui.finalizeMessage(messageId, message);
-      api.getSessionMessages(sessionId).then(messages => {
+      api.getSessionMessages(sessionId).then((messages) => {
         state.messages.set(sessionId, messages || []);
-        refreshContextUsage(messages || []);
+        configCtrl.refreshContextUsage(messages || []);
         trimMessageCache();
       }).catch(() => {});
     },
     onSessionUpdated: (sessionId, session) => {
-      const s = state.sessions.find((s) => s.id === sessionId);
-      if (s && session?.title) {
-        s.title = session.title;
-        ui.renderSessionList(state.sessions, state.currentSessionId);
-      }
+      const current = state.sessions.find((s) => s.id === sessionId);
+      if (!current || !session?.title) return;
+      current.title = session.title;
+      ui.renderSessionList(state.sessions, state.currentSessionId);
     },
     onSessionDeleted: (sessionId) => {
-      state.sessions = state.sessions.filter(s => s.id !== sessionId);
+      state.sessions = state.sessions.filter((s) => s.id !== sessionId);
       state.messages.delete(sessionId);
       if (state.currentSessionId === sessionId) {
-          if (state.sessions.length > 0) {
-              handleSessionSwitch(state.sessions[0].id);
-          } else {
-              state.currentSessionId = null;
-              ui.renderMessages([]);
-              refreshContextUsage([]);
-          }
+        if (state.sessions.length > 0) {
+          sessionCtrl.handleSessionSwitch(state.sessions[0].id);
+        } else {
+          state.currentSessionId = null;
+          ui.renderMessages([]);
+          configCtrl.refreshContextUsage([]);
+        }
       }
       ui.renderSessionList(state.sessions, state.currentSessionId);
     },
     onSessionStatus: (sessionId, status) => {
       if (sessionId !== state.currentSessionId) return;
-      if (status?.type === 'busy') {
-        state.isStreaming = true;
-        ui.setStreaming(true);
-      } else if (status?.type === 'idle') {
-        state.isStreaming = false;
-        ui.setStreaming(false);
-        ui.focusInput();
-      }
+      if (status?.type === 'busy') { state.isStreaming = true; ui.setStreaming(true); }
+      else if (status?.type === 'idle') { state.isStreaming = false; ui.setStreaming(false); ui.focusInput(); }
     },
-    onSessionIdle: (sessionId) => {
-      if (sessionId !== state.currentSessionId) return;
-      state.isStreaming = false;
-      ui.setStreaming(false);
-      ui.focusInput();
-    },
-    onError: () => {
-      ui.showConnectionStatus('connecting');
-    },
+    onSessionIdle: (sessionId) => { if (sessionId !== state.currentSessionId) return; state.isStreaming = false; ui.setStreaming(false); ui.focusInput(); },
+    onError: () => ui.showConnectionStatus('connecting'),
   });
 
   if (bridge) {
     try {
       bridge.connect({
         onConnected: () => {},
-        onInsertPaths: (paths) => {
-          paths.forEach((p) => ui.insertChipAtCursor(p));
-          ui.focusInput();
-        },
-        onUpdateOpenedFiles: (openedFiles, currentFile) => {
-          state.openFiles = openedFiles;
-          state.currentFile = currentFile;
-        },
+        onInsertPaths: (paths) => { paths.forEach((p) => { ui.insertChipAtCursor(p); }); ui.focusInput(); },
+        onUpdateOpenedFiles: (openedFiles, currentFile) => { state.openFiles = openedFiles; state.currentFile = currentFile; },
       });
     } catch (_) {}
   }
@@ -157,19 +104,12 @@ function connectStreams() {
 async function handleSend() {
   const text = ui.getInputText().trim();
   if (!text || state.isStreaming) return;
-
-  if (!state.currentSessionId) {
-    await handleNewSession();
-    if (!state.currentSessionId) return;
-  }
-
+  if (!state.currentSessionId) { await sessionCtrl.handleNewSession(); if (!state.currentSessionId) return; }
   const userMsg = { id: `local_${Date.now()}`, role: 'user', content: text };
   ui.renderMessages([...(state.messages.get(state.currentSessionId) || []), userMsg]);
-
   ui.clearInput();
   ui.setStreaming(true);
   state.isStreaming = true;
-
   try {
     const parts = [{ type: 'text', text }];
     const config = {};
@@ -178,7 +118,7 @@ async function handleSend() {
     if (state.selectedAgent) config.agent = state.selectedAgent;
     await api.sendPromptWithConfig(state.currentSessionId, parts, config);
   } catch (e) {
-    ui.showError('Failed to send message: ' + e.message);
+    ui.showError(`Failed to send message: ${e.message}`);
     state.isStreaming = false;
     ui.setStreaming(false);
   }
@@ -186,271 +126,12 @@ async function handleSend() {
 
 async function handleAbort() {
   if (!state.isStreaming) return;
-  try {
-    await api.abortPrompt(state.currentSessionId);
-  } catch (_) {}
+  try { await api.abortPrompt(state.currentSessionId); } catch (_) {}
   state.isStreaming = false;
   ui.setStreaming(false);
 }
 
-async function handleNewSession() {
-  try {
-    const session = await api.createSession();
-    state.sessions.unshift(session);
-    state.currentSessionId = session.id;
-    state.messages.set(session.id, []);
-    ui.renderSessionList(state.sessions, state.currentSessionId);
-    ui.renderMessages([]);
-    ui.focusInput();
-  } catch (e) {
-    ui.showError('Failed to create session');
-  }
-}
-
-async function handleSessionSwitch(sessionId) {
-  if (sessionId === state.currentSessionId) return;
-  state.currentSessionId = sessionId;
-
-  if (state.isStreaming) {
-    state.isStreaming = false;
-    ui.setStreaming(false);
-  }
-
-  if (state.messages.has(sessionId)) {
-    ui.renderMessages(state.messages.get(sessionId));
-    refreshContextUsage(state.messages.get(sessionId));
-  } else {
-    try {
-      const messages = await api.getSessionMessages(sessionId);
-      state.messages.set(sessionId, messages || []);
-      ui.renderMessages(messages || []);
-      refreshContextUsage(messages || []);
-    } catch (e) {
-      if (e.message?.includes('404')) {
-        state.sessions = state.sessions.filter((s) => s.id !== sessionId);
-        ui.renderSessionList(state.sessions, null);
-        ui.showError('Session not found. It may have been deleted.');
-        state.currentSessionId = null;
-      } else {
-        ui.renderMessages([]);
-      }
-    }
-  }
-  trimMessageCache();
-  ui.focusInput();
-}
-
-async function handleDeleteSession(sessionId) {
-    if (!confirm('Delete this session?')) return;
-    try {
-        await api.deleteSession(sessionId);
-        removeSessionFromState(sessionId);
-        await switchAfterDelete();
-        ui.renderSessionList(state.sessions, state.currentSessionId);
-    } catch (e) {
-        ui.showError('Failed to delete session');
-    }
-}
-
-async function handleBulkDeleteSessions(sessionIds) {
-    if (!sessionIds || sessionIds.length === 0) return;
-    const count = sessionIds.length;
-    if (!confirm(`Delete ${count} session${count > 1 ? 's' : ''}?`)) return;
-
-    let failed = 0;
-    for (const id of sessionIds) {
-        try {
-            await api.deleteSession(id);
-            removeSessionFromState(id);
-        } catch (_) {
-            failed++;
-        }
-    }
-    await switchAfterDelete();
-    ui.renderSessionList(state.sessions, state.currentSessionId);
-    if (failed > 0) ui.showError(`Failed to delete ${failed} session(s)`);
-}
-
-function removeSessionFromState(sessionId) {
-    state.sessions = state.sessions.filter(s => s.id !== sessionId);
-    state.messages.delete(sessionId);
-}
-
-const MAX_CACHED_SESSIONS = 20;
-
-function trimMessageCache() {
-    if (state.messages.size <= MAX_CACHED_SESSIONS) return;
-    for (const [id] of state.messages) {
-        if (id === state.currentSessionId) continue;
-        state.messages.delete(id);
-        if (state.messages.size <= MAX_CACHED_SESSIONS) break;
-    }
-}
-
-async function switchAfterDelete() {
-    if (state.currentSessionId && !state.sessions.find(s => s.id === state.currentSessionId)) {
-        if (state.sessions.length > 0) {
-            await handleSessionSwitch(state.sessions[0].id);
-        } else {
-            state.currentSessionId = null;
-            ui.renderMessages([]);
-            refreshContextUsage([]);
-        }
-    }
-}
-
-function handleFileClick(path, line) {
-  if (bridge) bridge.openFile(path, line).catch(() => {});
-}
-
-async function loadSessions() {
-  try {
-    await api.health();
-  } catch (_) {
-    ui.showError('Cannot connect to OpenCode. Make sure "opencode serve" is running.');
-    ui.showConnectionStatus('error');
-    setTimeout(loadSessions, 5000);
-    return;
-  }
-
-  const sessions = await api.listSessions();
-  state.sessions = Array.isArray(sessions) ? sessions : [];
-
-  if (state.sessions.length > 0) {
-    ui.renderSessionList(state.sessions, state.sessions[0].id);
-    await handleSessionSwitch(state.sessions[0].id);
-  } else {
-    ui.renderSessionList([], null);
-  }
-}
-
-async function loadConfig() {
-  try {
-    const [providerData, agents, config, commands] = await Promise.all([
-      api.getProviders(),
-      api.getAgents(),
-      api.getConfig().catch(() => null),
-      api.getCommands().catch(() => []),
-    ]);
-
-    const models = [];
-    const connected = new Set(providerData?.connected || []);
-    for (const provider of (providerData?.all || [])) {
-      if (!connected.has(provider.id)) continue;
-      for (const [modelId, model] of Object.entries(provider.models || {})) {
-        models.push({
-          providerID: provider.id,
-          providerName: provider.name || provider.id,
-          modelID: modelId,
-          name: model.name || modelId,
-          variants: model.variants ? Object.keys(model.variants) : [],
-          contextLimit: model.limit?.context || 0,
-        });
-      }
-    }
-    state.allModels = models;
-    state.agents = Array.isArray(agents) ? agents : [];
-
-    if (models.length > 0) {
-      ui.renderModelList(models, '');
-      ui.renderVariantList([], '');
-    }
-
-    const defaultAgent = config?.default_agent || 'build';
-    const primaryAgents = state.agents.filter((a) => a.mode !== 'subagent');
-    if (primaryAgents.length > 0) {
-      const agentObj = primaryAgents.find((a) => a.name === defaultAgent) || primaryAgents[0];
-      state.selectedAgent = agentObj.name;
-      ui.setAgentName(agentObj.name);
-      ui.renderAgentList(primaryAgents, state.selectedAgent);
-      applyAgentDefaults(agentObj, models);
-    }
-
-    const slashCommands = (Array.isArray(commands) ? commands : []).map((cmd) => ({
-      name: '/' + cmd.name,
-      description: cmd.description || '',
-    }));
-    ui.setSlashCommands(slashCommands);
-  } catch (e) {
-    console.warn('Failed to load config:', e);
-  }
-}
-
-function handleModelChange(value) {
-  const [providerID, ...rest] = value.split('/');
-  const modelID = rest.join('/');
-  state.selectedModel = { providerID, modelID };
-
-  const model = state.allModels.find((m) => m.providerID === providerID && m.modelID === modelID);
-  state.currentModelVariants = model?.variants || [];
-  state.selectedVariant = state.currentModelVariants[0] || '';
-  ui.renderVariantList(state.currentModelVariants, state.selectedVariant);
-}
-
-function handleVariantChange(value) {
-  state.selectedVariant = value;
-}
-
-function handleAgentChange(value) {
-  state.selectedAgent = value;
-  ui.setAgentName(value);
-  const agentObj = state.agents.find((a) => a.name === value);
-  if (agentObj) applyAgentDefaults(agentObj, state.allModels);
-}
-
-function applyAgentDefaults(agentObj, models) {
-  const agentModel = agentObj.model;
-  if (!agentModel?.providerID || !agentModel?.modelID) return;
-
-  const modelKey = `${agentModel.providerID}/${agentModel.modelID}`;
-  const match = models.find((m) => `${m.providerID}/${m.modelID}` === modelKey);
-
-  if (match) {
-    state.selectedModel = { providerID: match.providerID, modelID: match.modelID };
-    state.currentModelVariants = match.variants;
-    state.selectedVariant = agentObj.variant || match.variants[0] || '';
-    ui.renderModelList(models, modelKey);
-    ui.renderVariantList(match.variants, state.selectedVariant);
-  } else {
-    state.selectedModel = { providerID: agentModel.providerID, modelID: agentModel.modelID };
-    state.selectedVariant = agentObj.variant || '';
-    ui.renderVariantList(agentObj.variant ? [agentObj.variant] : [], state.selectedVariant);
-  }
-}
-
-function refreshContextUsage(messages) {
-  if (!messages || messages.length === 0) {
-    ui.updateContextUsage(0, 0);
-    return;
-  }
-
-  const lastAssistant = [...messages].reverse().find((m) => {
-    const info = m.info || m;
-    return info.role === 'assistant' && info.tokens;
-  });
-
-  if (!lastAssistant) {
-    ui.updateContextUsage(0, 0);
-    return;
-  }
-
-  const info = lastAssistant.info || lastAssistant;
-  const tokens = info.tokens || {};
-  const cache = tokens.cache || {};
-  const total =
-    (tokens.input || 0) +
-    (tokens.output || 0) +
-    (tokens.reasoning || 0) +
-    (cache.read || 0) +
-    (cache.write || 0);
-
-  const model = state.allModels.find(
-    (m) => m.providerID === info.providerID && m.modelID === info.modelID,
-  );
-  const limit = model?.contextLimit || 0;
-
-  ui.updateContextUsage(total, limit);
-}
+function handleFileClick(path, line) { if (bridge) bridge.openFile(path, line).catch(() => {}); }
 
 window.addEventListener('beforeunload', () => {
   api?.disconnectEvents();
