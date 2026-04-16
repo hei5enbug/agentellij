@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.2.3"
+version = "0.2.4"
 
 repositories {
     mavenCentral()
@@ -68,60 +68,13 @@ intellijPlatform {
               <li>The plugin launches the agent and loads the chat UI automatically</li>
             </ol>
         """.trimIndent())
-        changeNotes.set("""
-            <h3>0.2.3</h3>
-            <ul>
-              <li>Add live GUI/TUI mode switching via toolbar toggle button — no restart required</li>
-              <li>Remove backend log panel from GUI mode for a cleaner interface</li>
-              <li>Hide empty collapsible message parts (Thinking, Tool Result, Patch, etc.)</li>
-              <li>Show role label only for user messages; suppress empty assistant messages</li>
-              <li>Normalize font sizes: 14px for message area, 13px for surrounding UI</li>
-              <li>Tighten message spacing: padding and part-card margins minimized</li>
-            </ul>
-
-            <h3>0.2.2</h3>
-            <ul>
-              <li>Add slash command autocomplete in GUI mode — type <code>/</code> to search and select available commands and skills fetched from the OpenCode API</li>
-              <li>Fix ESC key in TUI mode — ESC is now sent directly to the terminal process instead of being consumed by IntelliJ</li>
-              <li>Fix lint warnings: CSS generic font-family fallbacks, redundant unit on zero, unused Kotlin import, and missing HTML accessibility label</li>
-            </ul>
-
-            <h3>0.2.1</h3>
-            <ul>
-              <li>Auto-detect the OpenCode binary from PATH and common install locations when no explicit binary path is configured</li>
-              <li>Clarify shortcut behavior and setup details in the README and marketplace metadata</li>
-            </ul>
-
-            <h3>0.2.0</h3>
-            <ul>
-              <li>Add TUI mode to run the agent directly inside the tool window terminal</li>
-              <li>Keep GUI mode available as the embedded JCEF web UI</li>
-              <li>Improve backend launcher recovery and binary fallback handling</li>
-              <li>Unify context actions behind the shared Ctrl+Shift+I / ⌘⇧I shortcut</li>
-            </ul>
-
-            <h3>0.1.1</h3>
-            <ul>
-              <li>Add marketplace plugin icons (40×40 SVG, light and dark themes)</li>
-              <li>Update vendor metadata with valid contact email and repository URL</li>
-              <li>Enhance plugin description with feature list and getting started guide</li>
-              <li>Add MIT LICENSE file to distribution</li>
-            </ul>
-
-            <h3>0.1.0</h3>
-            <ul>
-              <li>Embedded JCEF-based chat UI with Tokyo Night dark theme</li>
-              <li>Real-time file and selection sync with AI agents</li>
-              <li>Context shortcuts: add files, lines, or directories (⌘⇧I)</li>
-              <li>Drag and drop files from project tree to chat</li>
-              <li>Per-project isolated sessions with token authentication</li>
-              <li>Configurable agent binary path and CLI arguments</li>
-              <li>Background agent process in hidden terminal tab</li>
-              <li>Session management with bulk delete</li>
-              <li>Streamed response rendering with debounced markdown</li>
-              <li>Context window usage display</li>
-            </ul>
-        """.trimIndent())
+        changeNotes.set(provider {
+            fileTree("changelogs") {
+                include("*.html")
+            }.files
+                .sortedByDescending { it.nameWithoutExtension }
+                .joinToString("\n") { it.readText().trim() }
+        })
     }
 }
 
