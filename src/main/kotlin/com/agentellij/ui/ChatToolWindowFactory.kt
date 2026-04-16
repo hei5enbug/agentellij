@@ -1,5 +1,6 @@
 package com.agentellij.ui
 
+import com.agentellij.backend.AgentProfileResolver
 import com.agentellij.settings.AgentellIJSettings
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
@@ -34,7 +35,39 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
             }
         }
 
-        val switchAction = object : DumbAwareAction() {
+        val agentSwitchAction = object : DumbAwareAction() {
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+            override fun actionPerformed(e: AnActionEvent) {
+                val settings = AgentellIJSettings.getInstance()
+                val profiles = AgentProfileResolver.allProfiles()
+                val currentProfile = AgentProfileResolver.resolve()
+                val currentIndex = profiles.indexOfFirst { it.id == currentProfile.id }
+                val nextProfile = profiles[(currentIndex + 1) % profiles.size]
+
+                settings.state.activeAgent = nextProfile.id
+
+                val currentMode = settings.getMode()
+                if (currentMode !in nextProfile.supportedModes) {
+                    settings.state.mode = nextProfile.supportedModes.first()
+                }
+
+                installMode(settings.getMode())
+            }
+
+            override fun update(e: AnActionEvent) {
+                val profiles = AgentProfileResolver.allProfiles()
+                val currentProfile = AgentProfileResolver.resolve()
+                val currentIndex = profiles.indexOfFirst { it.id == currentProfile.id }
+                val nextProfile = profiles[(currentIndex + 1) % profiles.size]
+
+                e.presentation.text = "Switch to ${nextProfile.displayName}"
+                e.presentation.description = "Switch agent from ${currentProfile.displayName} to ${nextProfile.displayName}"
+                e.presentation.icon = AllIcons.Actions.SwapPanels
+            }
+        }
+
+        val modeSwitchAction = object : DumbAwareAction() {
             override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
             override fun actionPerformed(e: AnActionEvent) {
@@ -45,9 +78,13 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
             }
 
             override fun update(e: AnActionEvent) {
+                val profile = AgentProfileResolver.resolve()
+                val enabled = profile.supportedModes.size > 1
+
+                e.presentation.isEnabled = enabled
                 if (AgentellIJSettings.getInstance().getMode() == "tui") {
-                    e.presentation.text = "Switch to GUI Mode"
-                    e.presentation.description = "Switch to the browser-based chat interface"
+                    e.presentation.text = if (enabled) "Switch to GUI Mode" else "GUI Mode Not Available"
+                    e.presentation.description = if (enabled) "Switch to the browser-based chat interface" else "${profile.displayName} only supports TUI mode"
                     e.presentation.icon = AllIcons.General.LayoutPreviewOnly
                 } else {
                     e.presentation.text = "Switch to TUI Mode"
@@ -57,7 +94,7 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
             }
         }
 
-        toolWindow.setTitleActions(listOf(switchAction))
+        toolWindow.setTitleActions(listOf(agentSwitchAction, modeSwitchAction))
 
         installMode(AgentellIJSettings.getInstance().getMode())
     }

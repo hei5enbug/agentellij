@@ -13,16 +13,26 @@ import java.io.File
  */
 object AgentProfileResolver {
     private val profiles: List<AgentProfile> = listOf(
-        OpenCodeProfile()
+        OpenCodeProfile(),
+        ClaudeCodeProfile()
     )
 
     /**
      * Resolve the agent profile from current settings and environment.
+     *
+     * Resolution order:
+     * 1. Match [AgentellIJSettings.State.activeAgent] against known profile IDs
+     * 2. Match Settings binary path filename against known profiles (legacy)
+     * 3. Match `AGENTELLIJ_BIN` env var filename against known profiles
+     * 4. Fall back to [OpenCodeProfile]
      */
     fun resolve(): AgentProfile {
         val settings = AgentellIJSettings.getInstance()
-        val settingsPath = settings.state.agentPath.trim()
 
+        val activeAgentId = settings.getActiveAgent()
+        profiles.find { it.id == activeAgentId }?.let { return it }
+
+        val settingsPath = settings.getAgentPath(activeAgentId).trim()
         if (settingsPath.isNotEmpty()) {
             matchByBinaryName(settingsPath)?.let { return it }
         }
