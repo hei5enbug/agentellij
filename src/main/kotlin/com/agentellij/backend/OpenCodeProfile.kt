@@ -13,6 +13,7 @@ class OpenCodeProfile : AgentProfile {
     override val displayName = "OpenCode"
     override val defaultBinary = "opencode"
     override val binaryEnvVars = listOf("OPENCODE_BIN")
+    override val supportedModes = listOf("tui", "gui")
 
     override fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String> {
         val args = mutableListOf(binary)
