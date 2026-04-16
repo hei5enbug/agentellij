@@ -9,8 +9,11 @@ import com.agentellij.settings.AgentellIJConfigurable
 import com.agentellij.util.closeQuietly
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -20,6 +23,9 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
+import java.awt.event.KeyEvent
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.URI
@@ -34,6 +40,7 @@ import javax.swing.JButton
 import javax.swing.JEditorPane
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
 
@@ -196,6 +203,8 @@ class GuiModeContent(
             val uiUrl = buildCustomUiUrl(session.baseUrl, session.token, apiBaseUrl)
             browser.loadURL(uiUrl)
 
+            installEscapeHandler(browser)
+
             Disposer.register(parentDisposable) {
                 IdeBridge.removeSession(session.sessionId)
             }
@@ -210,6 +219,47 @@ class GuiModeContent(
         } catch (e: Exception) {
             logger.error("Failed to create browser component", e)
             showError(mainPanel, "Failed to create browser:<br/>${e.message}")
+        }
+    }
+
+    private fun installEscapeHandler(browser: JBCefBrowser) {
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) {
+                forwardEscapeToBrowser(browser)
+            }
+        }.registerCustomShortcutSet(
+            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0)),
+            browser.component,
+            browser
+        )
+
+        val escapeDispatcher = KeyEventDispatcher { event ->
+            if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
+            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (!toolWindow.isVisible) return@KeyEventDispatcher false
+
+            val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+                ?: return@KeyEventDispatcher false
+            if (!SwingUtilities.isDescendingFrom(focusOwner, browser.component)) return@KeyEventDispatcher false
+
+            forwardEscapeToBrowser(browser)
+            event.consume()
+            true
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
+        Disposer.register(browser) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
+        }
+    }
+
+    private fun forwardEscapeToBrowser(browser: JBCefBrowser) {
+        runQuietly {
+            browser.cefBrowser.executeJavaScript(
+                "(function(){var t=document.activeElement||document.body;" +
+                    "t.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape'," +
+                    "keyCode:27,which:27,bubbles:true,cancelable:true}));})()",
+                "escape-forward", 0
+            )
         }
     }
 
