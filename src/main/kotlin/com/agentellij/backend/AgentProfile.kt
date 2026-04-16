@@ -34,6 +34,11 @@ interface AgentProfile {
     fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String>
 
     /**
+     * UI modes this agent supports (e.g. `["tui"]` or `["tui", "gui"]`).
+     */
+    val supportedModes: List<String>
+
+    /**
      * Regex to detect the server URL from agent stdout.
      * Capture group 1 must contain the full URL (e.g. `http://localhost:3000`).
      */

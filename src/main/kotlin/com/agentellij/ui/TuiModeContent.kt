@@ -16,6 +16,8 @@ import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.awt.BorderLayout
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 import java.io.File
 import java.util.Collections
@@ -23,10 +25,12 @@ import java.util.WeakHashMap
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.KeyStroke
+import javax.swing.SwingUtilities
 
 class TuiModeContent(
     private val project: Project,
-    private val toolWindow: ToolWindow
+    private val toolWindow: ToolWindow,
+    private val parentDisposable: Disposable = toolWindow.disposable
 ) {
     companion object {
         private val logger = Logger.getInstance(TuiModeContent::class.java)
@@ -69,7 +73,7 @@ class TuiModeContent(
             val options = ShellStartupOptions.Builder()
                 .workingDirectory(baseDir)
                 .build()
-            runner.startShellTerminalWidget(toolWindow.disposable, options, true)
+            runner.startShellTerminalWidget(parentDisposable, options, true)
         } catch (e: Exception) {
             logger.warn("Failed to create terminal widget", e)
             showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")
@@ -93,7 +97,28 @@ class TuiModeContent(
             toolWindow.disposable
         )
 
-        Disposer.register(toolWindow.disposable) {
+        val escapeDispatcher = KeyEventDispatcher { event ->
+            if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
+            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (!toolWindow.isVisible) return@KeyEventDispatcher false
+
+            val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return@KeyEventDispatcher false
+            if (!SwingUtilities.isDescendingFrom(focusOwner, terminalWidget.component)) return@KeyEventDispatcher false
+
+            terminalWidget.ttyConnector?.let { connector ->
+                runQuietly { connector.write("\u001B") }
+                event.consume()
+                return@KeyEventDispatcher true
+            }
+
+            false
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
+        Disposer.register(parentDisposable) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
+        }
+
+        Disposer.register(parentDisposable) {
             widgets.remove(project)
             destroyTerminalProcess(terminalWidget)
             runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }

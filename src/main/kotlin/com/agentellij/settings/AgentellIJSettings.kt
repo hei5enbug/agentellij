@@ -14,7 +14,9 @@ import com.intellij.openapi.components.Storage
 class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
     data class State(
         var mode: String = "tui",
+        var activeAgent: String = "opencode",
         var agentPath: String = "",
+        var claudeAgentPath: String = "",
         var customArgs: String = ""
     )
 
@@ -27,6 +29,20 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
     }
 
     fun getMode(): String = normalizeMode(state.mode)
+
+    fun getActiveAgent(): String = state.activeAgent.ifBlank { "opencode" }
+
+    fun getAgentPath(agentId: String): String = when (agentId) {
+        "claude" -> state.claudeAgentPath
+        else -> state.agentPath
+    }
+
+    fun setAgentPath(agentId: String, path: String) {
+        when (agentId) {
+            "claude" -> state.claudeAgentPath = path
+            else -> state.agentPath = path
+        }
+    }
 
     companion object {
         fun normalizeMode(mode: String?): String =

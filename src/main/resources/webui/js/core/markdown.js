@@ -1,4 +1,4 @@
-import { marked } from '../vendor/marked.min.js';
+import { marked } from '../../vendor/marked.min.js';
 
 marked.setOptions({
   gfm: true,

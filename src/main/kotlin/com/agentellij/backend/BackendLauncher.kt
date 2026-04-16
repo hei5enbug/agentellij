@@ -144,7 +144,7 @@ object BackendLauncher {
 
     private fun resolveBinary(profile: AgentProfile): String {
         val settings = AgentellIJSettings.getInstance()
-        val settingsPath = settings.state.agentPath.trim()
+        val settingsPath = settings.getAgentPath(profile.id).trim()
         if (settingsPath.isNotEmpty() && java.io.File(settingsPath).canExecute()) return settingsPath
 
         val agentEnv = System.getenv("AGENTELLIJ_BIN")
@@ -157,7 +157,7 @@ object BackendLauncher {
 
         val discoveredBinary = discoverBinary(profile.defaultBinary)
         if (settingsPath.isEmpty() && discoveredBinary != null) {
-            settings.state.agentPath = discoveredBinary
+            settings.setAgentPath(profile.id, discoveredBinary)
             logger.info("Auto-detected ${profile.displayName} binary at: $discoveredBinary")
             return discoveredBinary
         }

@@ -8,19 +8,24 @@ import com.agentellij.context.DragDropHandler
 import com.agentellij.settings.AgentellIJConfigurable
 import com.agentellij.util.closeQuietly
 import com.agentellij.util.runQuietly
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
-import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
-import java.awt.Font
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
+import java.awt.event.KeyEvent
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.URI
@@ -32,24 +37,23 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JButton
-import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.JTextArea
+import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
 
 class GuiModeContent(
     private val project: Project,
-    private val toolWindow: ToolWindow
+    private val toolWindow: ToolWindow,
+    private val parentDisposable: Disposable = toolWindow.disposable
 ) {
     companion object {
         private val logger = Logger.getInstance(GuiModeContent::class.java)
     }
 
     private val profile = AgentProfileResolver.resolve()
-    private val maxLogChars = 200_000
 
     fun install() {
         val mainPanel = JPanel(BorderLayout())
@@ -61,39 +65,11 @@ class GuiModeContent(
             return
         }
 
-        val (logArea, hideableLogs) = createLogComponents()
-
         val procRef = AtomicReference<BackendProcess?>(null)
         val browserRef = AtomicReference<JBCefBrowser?>(null)
         val connected = AtomicBoolean(false)
         val launchGeneration = AtomicInteger(0)
         val timeoutRef = AtomicReference<ScheduledFuture<*>?>(null)
-        val logLock = Any()
-        val logBuffer = StringBuilder()
-        val logFlushScheduled = AtomicBoolean(false)
-
-        fun scheduleLogFlush() {
-            if (!logFlushScheduled.compareAndSet(false, true)) return
-            SwingUtilities.invokeLater {
-                val chunk = synchronized(logLock) {
-                    val s = logBuffer.toString()
-                    logBuffer.setLength(0)
-                    s
-                }
-                logArea.append(chunk)
-                val doc = logArea.document
-                val overflow = doc.length - maxLogChars
-                if (overflow > 0) runQuietly { doc.remove(0, overflow) }
-                logFlushScheduled.set(false)
-                val hasMore = synchronized(logLock) { logBuffer.isNotEmpty() }
-                if (hasMore) scheduleLogFlush()
-            }
-        }
-
-        fun queueLog(line: String) {
-            synchronized(logLock) { logBuffer.append(line).append('\n') }
-            scheduleLogFlush()
-        }
 
         val timeoutMs = 300_000L
 
@@ -105,14 +81,14 @@ class GuiModeContent(
             browserRef.getAndSet(null)?.let { runQuietly { Disposer.dispose(it) } }
             connected.set(false)
 
-            showLoading(mainPanel, hideableLogs)
+            showLoading(mainPanel)
 
             val timeout = AppExecutorUtil.getAppScheduledExecutorService().schedule({
                 if (connected.get() || launchGeneration.get() != gen) return@schedule
                 logger.warn("Backend connection timeout after ${timeoutMs}ms")
                 SwingUtilities.invokeLater {
                     if (launchGeneration.get() != gen) return@invokeLater
-                    showRecoverableError(mainPanel, hideableLogs, "Backend connection timeout.<br/>Check logs for details.", { startBackend() })
+                    showRecoverableError(mainPanel, "Backend connection timeout.<br/>Check logs for details.", { startBackend() })
                 }
                 runQuietly { procRef.get()?.destroy() }
             }, timeoutMs, TimeUnit.MILLISECONDS)
@@ -128,7 +104,7 @@ class GuiModeContent(
                     if (launchGeneration.get() != gen) return@execute
                     SwingUtilities.invokeLater {
                         if (launchGeneration.get() != gen) return@invokeLater
-                        showRecoverableError(mainPanel, hideableLogs, "Failed to start backend:<br/>${e.message}<br/><br/>Is the agent binary installed and on your PATH?", { startBackend() })
+                        showRecoverableError(mainPanel, "Failed to start backend:<br/>${e.message}<br/><br/>Is the agent binary installed and on your PATH?", { startBackend() })
                     }
                     timeoutRef.get()?.cancel(false)
                     return@execute
@@ -146,7 +122,6 @@ class GuiModeContent(
                         var line: String?
                         while (reader.readLine().also { line = it } != null) {
                             val l = line!!.trim()
-                            queueLog(l)
                             if (connected.get()) continue
 
                             val serverMatch = profile.serverUrlPattern.find(l) ?: continue
@@ -164,7 +139,7 @@ class GuiModeContent(
                             logger.info("Backend connection established at $apiBaseUrl")
                             SwingUtilities.invokeLater {
                                 if (launchGeneration.get() != gen) return@invokeLater
-                                connectBrowser(mainPanel, hideableLogs, apiBaseUrl, proc, browserRef)
+                                connectBrowser(mainPanel, apiBaseUrl, proc, browserRef)
                             }
                         }
                     } catch (e: java.io.IOException) {
@@ -172,14 +147,14 @@ class GuiModeContent(
                             logger.warn("Backend output stream closed before connection was established: ${e.message}")
                             SwingUtilities.invokeLater {
                                 if (launchGeneration.get() != gen) return@invokeLater
-                                showRecoverableError(mainPanel, hideableLogs, "Backend process terminated unexpectedly.<br/>Check logs for details.", { startBackend() })
+                                showRecoverableError(mainPanel, "Backend process terminated unexpectedly.<br/>Check logs for details.", { startBackend() })
                             }
                         }
                     } catch (e: Exception) {
                         logger.error("Error reading backend output", e)
                         SwingUtilities.invokeLater {
                             if (launchGeneration.get() != gen) return@invokeLater
-                            showRecoverableError(mainPanel, hideableLogs, "Backend communication error:<br/>${e.message}", { startBackend() })
+                            showRecoverableError(mainPanel, "Backend communication error:<br/>${e.message}", { startBackend() })
                         }
                     } finally {
                         reader.closeQuietly()
@@ -190,42 +165,18 @@ class GuiModeContent(
             }
         }
 
-        Disposer.register(toolWindow.disposable) {
+        Disposer.register(parentDisposable) {
             timeoutRef.get()?.cancel(false)
             runQuietly { procRef.get()?.destroy() }
+            browserRef.getAndSet(null)?.let { runQuietly { Disposer.dispose(it) } }
         }
 
         startBackend()
     }
 
-    private fun createLogComponents(): Pair<JTextArea, JComponent> {
-        val logArea = JTextArea().apply {
-            font = Font(Font.MONOSPACED, Font.PLAIN, 12)
-            isEditable = false
-            lineWrap = true
-            wrapStyleWord = true
-        }
-        val logScroll = JBScrollPane(logArea)
-        val hideableLogs = com.intellij.ui.dsl.builder.panel {
-            collapsibleGroup("Backend Logs (Merged Stdout/Stderr)") {
-                row {
-                    cell(logScroll)
-                        .align(com.intellij.ui.dsl.builder.Align.FILL)
-                        .resizableColumn()
-                }
-            }.apply {
-                expanded = false
-            }
-        }.apply {
-            border = JBUI.Borders.empty(4)
-        }
-        return logArea to hideableLogs
-    }
-
     @Suppress("UNUSED_PARAMETER")
     private fun connectBrowser(
         mainPanel: JPanel,
-        hideableLogs: JComponent,
         apiBaseUrl: String,
         proc: BackendProcess,
         browserRef: AtomicReference<JBCefBrowser?>
@@ -245,7 +196,6 @@ class GuiModeContent(
 
             mainPanel.removeAll()
             mainPanel.add(browser.component, BorderLayout.CENTER)
-            mainPanel.add(hideableLogs, BorderLayout.SOUTH)
             mainPanel.revalidate()
             mainPanel.repaint()
 
@@ -253,7 +203,9 @@ class GuiModeContent(
             val uiUrl = buildCustomUiUrl(session.baseUrl, session.token, apiBaseUrl)
             browser.loadURL(uiUrl)
 
-            Disposer.register(toolWindow.disposable) {
+            installEscapeHandler(browser)
+
+            Disposer.register(parentDisposable) {
                 IdeBridge.removeSession(session.sessionId)
             }
 
@@ -266,34 +218,67 @@ class GuiModeContent(
             }
         } catch (e: Exception) {
             logger.error("Failed to create browser component", e)
-            showError(mainPanel, hideableLogs, "Failed to create browser:<br/>${e.message}")
+            showError(mainPanel, "Failed to create browser:<br/>${e.message}")
         }
     }
 
-    private fun showLoading(mainPanel: JPanel, hideableLogs: JComponent) {
+    private fun installEscapeHandler(browser: JBCefBrowser) {
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) {
+                forwardEscapeToBrowser(browser)
+            }
+        }.registerCustomShortcutSet(
+            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0)),
+            browser.component,
+            browser
+        )
+
+        val escapeDispatcher = KeyEventDispatcher { event ->
+            if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
+            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (!toolWindow.isVisible) return@KeyEventDispatcher false
+
+            val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+                ?: return@KeyEventDispatcher false
+            if (!SwingUtilities.isDescendingFrom(focusOwner, browser.component)) return@KeyEventDispatcher false
+
+            forwardEscapeToBrowser(browser)
+            event.consume()
+            true
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
+        Disposer.register(browser) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
+        }
+    }
+
+    private fun forwardEscapeToBrowser(browser: JBCefBrowser) {
+        runQuietly {
+            browser.cefBrowser.executeJavaScript(
+                "(function(){var t=document.activeElement||document.body;" +
+                    "t.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape'," +
+                    "keyCode:27,which:27,bubbles:true,cancelable:true}));})()",
+                "escape-forward", 0
+            )
+        }
+    }
+
+    private fun showLoading(mainPanel: JPanel) {
         mainPanel.removeAll()
         mainPanel.add(JPanel(BorderLayout()).apply {
             add(JLabel("<html><center>Starting agent backend...</center></html>"), BorderLayout.CENTER)
         }, BorderLayout.CENTER)
-        mainPanel.add(hideableLogs, BorderLayout.SOUTH)
         mainPanel.revalidate()
         mainPanel.repaint()
     }
 
-    private fun showRecoverableError(
-        mainPanel: JPanel,
-        hideableLogs: JComponent,
-        message: String,
-        retryAction: () -> Unit
-    ) {
+    private fun showRecoverableError(mainPanel: JPanel, message: String, retryAction: () -> Unit) {
         mainPanel.removeAll()
         mainPanel.add(JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(16)
             add(createSelectableHtml(message), BorderLayout.CENTER)
             add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 0)).apply {
-                add(JButton("Retry").apply {
-                    addActionListener { retryAction() }
-                })
+                add(JButton("Retry").apply { addActionListener { retryAction() } })
                 add(JButton("Open Settings").apply {
                     addActionListener {
                         ShowSettingsUtil.getInstance().showSettingsDialog(project, AgentellIJConfigurable::class.java)
@@ -301,7 +286,6 @@ class GuiModeContent(
                 })
             }, BorderLayout.SOUTH)
         }, BorderLayout.CENTER)
-        mainPanel.add(hideableLogs, BorderLayout.SOUTH)
         mainPanel.revalidate()
         mainPanel.repaint()
     }
@@ -316,12 +300,11 @@ class GuiModeContent(
         }
     }
 
-    private fun showError(mainPanel: JPanel, hideableLogs: JComponent, message: String) {
+    private fun showError(mainPanel: JPanel, message: String) {
         mainPanel.removeAll()
         mainPanel.add(JPanel(BorderLayout()).apply {
             add(createSelectableHtml(message), BorderLayout.CENTER)
         }, BorderLayout.CENTER)
-        mainPanel.add(hideableLogs, BorderLayout.SOUTH)
         mainPanel.revalidate()
         mainPanel.repaint()
     }

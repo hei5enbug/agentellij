@@ -43,6 +43,7 @@ out/
 .claude
 .opencode
 .sisyphus
+.omc/
 
 # Gradle
 build/
