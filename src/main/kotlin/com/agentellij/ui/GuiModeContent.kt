@@ -236,6 +236,7 @@ class GuiModeContent(
         val escapeDispatcher = KeyEventDispatcher { event ->
             if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
             if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (event.isConsumed) return@KeyEventDispatcher true
             if (!toolWindow.isVisible) return@KeyEventDispatcher false
 
             val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner

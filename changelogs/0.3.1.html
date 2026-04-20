@@ -1,0 +1,5 @@
+<h3>0.3.1</h3>
+<ul>
+  <li>Fix ESC key not aborting active streaming prompts in GUI mode — pressing ESC during streaming now aborts the prompt via the OpenCode abort endpoint</li>
+  <li>Fix ESC handling in TUI mode — forward ESC to the agent pty using the Kitty keyboard protocol encoding (CSI 27 u) so OpenCode's opentui parser recognizes it, and guard the global key dispatcher against re-entrant delivery so one key press produces exactly one interrupt signal</li>
+</ul>

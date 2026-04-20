@@ -29,8 +29,9 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 
 - **IntelliJ IDEA** 2025.1 or later (Community or Ultimate)
 - **JBR with JCEF** — Required for the embedded browser (default JetBrains Runtime includes it)
-- **An AI coding agent** — Any agent that exposes a web UI via a local server. For example:
+- **An AI coding agent** — Any terminal-based AI coding agent. For example:
   - [OpenCode](https://github.com/sst/opencode) — `npm i -g opencode-ai`
+  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm i -g @anthropic-ai/claude-code`
 
 ## Installation
 
@@ -93,8 +94,9 @@ Use the **Mode** dropdown to set the default mode on startup, or use the **toolb
 
 | Setting | Description | Default |
 |---|---|---|
+| Agent | Which AI coding agent to use | `OpenCode` |
 | Mode | Tool window runtime: interactive terminal (**TUI**) or embedded web UI (**GUI**) | `TUI` |
-| Agent binary path | Absolute path to the agent executable | _(empty — auto-detects `opencode` from `PATH` or common install locations)_ |
+| Agent binary path | Absolute path to the agent executable | _(empty — auto-detects from `PATH` or common install locations)_ |
 | Additional arguments | Extra CLI args appended after the agent binary | _(empty)_ |
 
 ### Environment Variables
@@ -104,7 +106,7 @@ Use the **Mode** dropdown to set the default mode on startup, or use the **toolb
 | `AGENTELLIJ_BIN` | Path to the agent binary (overrides `PATH` lookup) |
 | `OPENCODE_BIN` | Legacy fallback for OpenCode users |
 
-**Resolution order:** Settings > `AGENTELLIJ_BIN` > `OPENCODE_BIN` > discovered `opencode` absolute path (`PATH` first, then common install locations) > `opencode`
+**Resolution order:** Settings path > `AGENTELLIJ_BIN` > agent-specific env vars (e.g., `OPENCODE_BIN`) > discovered binary (`PATH` first, then common install locations) > agent's default binary name
 
 ## Architecture
 
@@ -119,6 +121,7 @@ com.agentellij
 │   ├── AgentProfile               # Interface: agent-specific behavior
 │   ├── AgentProfileResolver       # Resolves profile from settings/env
 │   ├── OpenCodeProfile            # OpenCode agent implementation
+│   ├── ClaudeCodeProfile          # Claude Code agent implementation
 │   ├── BackendLauncher            # Launches agent process with fallback
 │   ├── BackendProcess             # Process abstraction interface
 │   ├── DirectBackendProcess       # Direct process with piped stdout
@@ -126,6 +129,7 @@ com.agentellij
 ├── bridge/            # IDE ↔ Agent communication (HTTP + SSE)
 │   ├── IdeBridge                  # HTTP server on localhost (random port)
 │   ├── BridgeSession              # Per-project session with token auth
+│   ├── SessionInfo                # Session URL, token, and ID for clients
 │   └── MessageHandler             # Routes: openFile, openUrl, reloadPath, kv, model, settings
 ├── context/           # Context passing to agent
 │   ├── ContextSender              # Sends file paths via bridge

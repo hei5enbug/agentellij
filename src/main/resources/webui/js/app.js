@@ -41,6 +41,17 @@ function wireUICallbacks() {
   ui.onModelChange((val) => configCtrl.handleModelChange(val));
   ui.onVariantChange((val) => configCtrl.handleVariantChange(val));
   ui.onAgentChange((val) => configCtrl.handleAgentChange(val));
+
+  document.addEventListener('keydown', handleGlobalEscape, true);
+}
+
+function handleGlobalEscape(e) {
+  if (e.key !== 'Escape') return;
+  if (!state.isStreaming) return;
+  if (ui?._slashVisible) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleAbort();
 }
 
 function connectStreams() {

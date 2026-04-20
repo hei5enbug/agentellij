@@ -4,10 +4,7 @@ import com.agentellij.backend.BackendLauncher
 import com.agentellij.util.resolveAbsolutePath
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -24,7 +21,6 @@ import java.util.Collections
 import java.util.WeakHashMap
 import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 
 class TuiModeContent(
@@ -85,28 +81,17 @@ class TuiModeContent(
         mainPanel.revalidate()
         mainPanel.repaint()
 
-        object : DumbAwareAction() {
-            override fun actionPerformed(e: AnActionEvent) {
-                terminalWidget.ttyConnector?.let { connector ->
-                    runQuietly { connector.write("\u001B") }
-                }
-            }
-        }.registerCustomShortcutSet(
-            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0)),
-            terminalWidget.component,
-            toolWindow.disposable
-        )
-
         val escapeDispatcher = KeyEventDispatcher { event ->
             if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
             if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (event.isConsumed) return@KeyEventDispatcher true
             if (!toolWindow.isVisible) return@KeyEventDispatcher false
 
             val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return@KeyEventDispatcher false
             if (!SwingUtilities.isDescendingFrom(focusOwner, terminalWidget.component)) return@KeyEventDispatcher false
 
             terminalWidget.ttyConnector?.let { connector ->
-                runQuietly { connector.write("\u001B") }
+                runQuietly { connector.write("\u001B[27u") }
                 event.consume()
                 return@KeyEventDispatcher true
             }
