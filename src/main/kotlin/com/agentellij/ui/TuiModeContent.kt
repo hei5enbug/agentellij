@@ -13,15 +13,21 @@ import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.Container
 import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
+import java.awt.event.MouseEvent
+import java.awt.event.MouseMotionListener
 import java.io.File
 import java.util.Collections
 import java.util.WeakHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
+import javax.swing.Timer
 
 class TuiModeContent(
     private val project: Project,
@@ -80,6 +86,11 @@ class TuiModeContent(
         mainPanel.add(terminalWidget.component, BorderLayout.CENTER)
         mainPanel.revalidate()
         mainPanel.repaint()
+
+        // Block xterm "all motion" mouse tracking (DECSET 1003h) from reaching the
+        // TUI: BubbleTea-based TUIs interpret reported mouse moves as cursor moves,
+        // so the embedded prompt cursor follows the mouse without this filter.
+        installMouseMotionFilter(terminalWidget.component)
 
         val escapeDispatcher = KeyEventDispatcher { event ->
             if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
@@ -188,5 +199,59 @@ class TuiModeContent(
         }, BorderLayout.CENTER)
         mainPanel.revalidate()
         mainPanel.repaint()
+    }
+
+    private val wrappedMotionListeners: MutableSet<MouseMotionListener> =
+        Collections.newSetFromMap(WeakHashMap())
+
+    private fun installMouseMotionFilter(root: Component) {
+        SwingUtilities.invokeLater {
+            val ticks = AtomicInteger(0)
+            val maxTicks = 15
+            lateinit var timer: Timer
+            timer = Timer(200) {
+                runQuietly { wrapMotionListenersInTree(root) }
+                if (ticks.incrementAndGet() >= maxTicks) timer.stop()
+            }
+            timer.isRepeats = true
+            timer.start()
+            Disposer.register(parentDisposable) { runQuietly { timer.stop() } }
+        }
+    }
+
+    private fun wrapMotionListenersInTree(root: Component) {
+        val queue = ArrayDeque<Component>()
+        queue.add(root)
+        while (queue.isNotEmpty()) {
+            val c = queue.removeFirst()
+            if (isTerminalPanelLike(c)) wrapMouseMotionListeners(c)
+            if (c is Container) c.components.forEach { queue.add(it) }
+        }
+    }
+
+    private fun isTerminalPanelLike(c: Component): Boolean {
+        val name = c.javaClass.name
+        return name.endsWith("TerminalPanel") || name.endsWith("JBTerminalPanel")
+    }
+
+    private fun wrapMouseMotionListeners(panel: Component) {
+        val unwrapped = panel.mouseMotionListeners.filter { it !in wrappedMotionListeners }
+        if (unwrapped.isEmpty()) return
+        for (original in unwrapped) {
+            panel.removeMouseMotionListener(original)
+            val wrapper = MouseMotionFilter(original)
+            panel.addMouseMotionListener(wrapper)
+            wrappedMotionListeners.add(wrapper)
+        }
+    }
+
+    private class MouseMotionFilter(private val delegate: MouseMotionListener) : MouseMotionListener {
+        override fun mouseMoved(e: MouseEvent) {
+            // dropped: prevents JediTerm from forwarding mouse-move events to the PTY
+        }
+
+        override fun mouseDragged(e: MouseEvent) {
+            delegate.mouseDragged(e)
+        }
     }
 }
