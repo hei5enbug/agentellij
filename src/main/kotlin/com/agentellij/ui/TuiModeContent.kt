@@ -23,6 +23,7 @@ import java.awt.event.MouseMotionListener
 import java.io.File
 import java.util.Collections
 import java.util.WeakHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -37,6 +38,8 @@ class TuiModeContent(
     companion object {
         private val logger = Logger.getInstance(TuiModeContent::class.java)
         private val widgets = Collections.synchronizedMap(WeakHashMap<Project, TerminalWidget>())
+        private const val CSI_U_ESCAPE = "\u001B[27u"
+        private const val CSI_U_SHIFT_ENTER = "\u001B[13;2u"
 
         fun getWidget(project: Project): TerminalWidget? = widgets[project]
     }
@@ -92,27 +95,7 @@ class TuiModeContent(
         // so the embedded prompt cursor follows the mouse without this filter.
         installMouseMotionFilter(terminalWidget.component)
 
-        val escapeDispatcher = KeyEventDispatcher { event ->
-            if (event.keyCode != KeyEvent.VK_ESCAPE) return@KeyEventDispatcher false
-            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
-            if (event.isConsumed) return@KeyEventDispatcher true
-            if (!toolWindow.isVisible) return@KeyEventDispatcher false
-
-            val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return@KeyEventDispatcher false
-            if (!SwingUtilities.isDescendingFrom(focusOwner, terminalWidget.component)) return@KeyEventDispatcher false
-
-            terminalWidget.ttyConnector?.let { connector ->
-                runQuietly { connector.write("\u001B[27u") }
-                event.consume()
-                return@KeyEventDispatcher true
-            }
-
-            false
-        }
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(escapeDispatcher)
-        Disposer.register(parentDisposable) {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(escapeDispatcher)
-        }
+        installTerminalKeyForwarder(terminalWidget)
 
         Disposer.register(parentDisposable) {
             widgets.remove(project)
@@ -149,6 +132,49 @@ class TuiModeContent(
                 widget.ttyConnector?.write("\u0003")
             }
         }
+    }
+
+    private fun installTerminalKeyForwarder(terminalWidget: TerminalWidget) {
+        val suppressNextEnterTyped = AtomicBoolean(false)
+        val dispatcher = KeyEventDispatcher { event ->
+            if (!isTerminalEvent(terminalWidget.component)) return@KeyEventDispatcher false
+
+            if (event.id == KeyEvent.KEY_TYPED && event.keyChar == '\n' && suppressNextEnterTyped.compareAndSet(true, false)) {
+                event.consume()
+                return@KeyEventDispatcher true
+            }
+
+            if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+            if (event.isConsumed) return@KeyEventDispatcher true
+
+            val sequence = when {
+                event.keyCode == KeyEvent.VK_ESCAPE -> CSI_U_ESCAPE
+                event.keyCode == KeyEvent.VK_ENTER && event.isShiftDown -> {
+                    suppressNextEnterTyped.set(true)
+                    CSI_U_SHIFT_ENTER
+                }
+                else -> return@KeyEventDispatcher false
+            }
+
+            terminalWidget.ttyConnector?.let { connector ->
+                runQuietly { connector.write(sequence) }
+                event.consume()
+                return@KeyEventDispatcher true
+            }
+
+            false
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(dispatcher)
+        Disposer.register(parentDisposable) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(dispatcher)
+        }
+    }
+
+    private fun isTerminalEvent(terminalComponent: Component): Boolean {
+        if (!toolWindow.isVisible) return false
+
+        val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return false
+        return SwingUtilities.isDescendingFrom(focusOwner, terminalComponent)
     }
 
     private fun isUsableBinary(binary: String, resolvedBinary: String): Boolean {

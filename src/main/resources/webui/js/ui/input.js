@@ -6,8 +6,31 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function insertLineBreakAtCursor(input) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !input.contains(selection.anchorNode)) {
+    input.appendChild(document.createElement('br'));
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  const lineBreak = document.createElement('br');
+  range.deleteContents();
+  range.insertNode(lineBreak);
+  range.setStartAfter(lineBreak);
+  range.setEndAfter(lineBreak);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 export function setupInputHandlers(ui) {
   ui.promptInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      insertLineBreakAtCursor(ui.promptInput);
+      return;
+    }
+
     if (ui._slashVisible) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -36,7 +59,7 @@ export function setupInputHandlers(ui) {
       ui._callbacks.onSend?.();
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      document.execCommand('insertLineBreak');
+      insertLineBreakAtCursor(ui.promptInput);
     }
   });
 
