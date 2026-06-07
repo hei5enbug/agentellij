@@ -8,9 +8,9 @@ import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.agentellij.context.ContextSender
-import com.agentellij.util.resolveAbsolutePath
+import com.agentellij.context.ProjectPathResolver
 
-class AddDirectoryToContextAction : AnAction("AgentellIJ: Add to Context") {
+class AddDirectoryToContextAction : AnAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
@@ -24,9 +24,10 @@ class AddDirectoryToContextAction : AnAction("AgentellIJ: Add to Context") {
         val project = e.project ?: return
 
         ReadAction.nonBlocking<List<String>> {
-            files.mapNotNull { vf -> vf.resolveAbsolutePath() }
+            files.mapNotNull { vf -> ProjectPathResolver.absolutePath(vf) }
+                .distinct()
         }
-            .expireWith(project)
+            .expireWhen { project.isDisposed }
             .finishOnUiThread(ModalityState.any()) { paths ->
                 if (paths.isNotEmpty()) ContextSender.insertPaths(project, paths)
             }

@@ -1,13 +1,16 @@
 package com.agentellij.actions
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.editor.Editor
 import com.agentellij.context.ContextSender
-import com.agentellij.util.resolveAbsolutePath
+import com.agentellij.context.ProjectPathResolver
 
-class AddLinesToContextAction : AnAction("AgentellIJ: Add Lines to Context") {
+class AddLinesToContextAction : AnAction() {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
     override fun update(e: AnActionEvent) {
         val editor: Editor? = e.getData(CommonDataKeys.EDITOR)
         e.presentation.isEnabledAndVisible = editor?.selectionModel?.hasSelection() == true
@@ -25,7 +28,7 @@ class AddLinesToContextAction : AnAction("AgentellIJ: Add Lines to Context") {
         val startLine = doc.getLineNumber(sel.selectionStart) + 1
         val endLine = doc.getLineNumber((sel.selectionEnd - 1).coerceAtLeast(0)) + 1
 
-        val basePath = file.resolveAbsolutePath() ?: return
+        val basePath = ProjectPathResolver.absolutePath(file) ?: return
         val pathWithRange = "$basePath:$startLine-$endLine"
         ContextSender.insertPaths(project, listOf(pathWithRange))
     }

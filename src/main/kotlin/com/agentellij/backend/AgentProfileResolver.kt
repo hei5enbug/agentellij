@@ -28,26 +28,37 @@ object AgentProfileResolver {
      */
     fun resolve(): AgentProfile {
         val settings = AgentellIJSettings.getInstance()
-
         val activeAgentId = settings.getActiveAgent()
+        return resolveProfile(
+            activeAgentId = activeAgentId,
+            settingsPath = settings.getAgentPath(activeAgentId),
+            agentellijBin = System.getenv("AGENTELLIJ_BIN"),
+            profiles = profiles
+        )
+    }
+
+    fun allProfiles(): List<AgentProfile> = profiles.toList()
+
+    internal fun resolveProfile(
+        activeAgentId: String,
+        settingsPath: String,
+        agentellijBin: String?,
+        profiles: List<AgentProfile>
+    ): AgentProfile {
         profiles.find { it.id == activeAgentId }?.let { return it }
 
-        val settingsPath = settings.getAgentPath(activeAgentId).trim()
-        if (settingsPath.isNotEmpty()) {
-            matchByBinaryName(settingsPath)?.let { return it }
+        settingsPath.trim().takeIf { it.isNotEmpty() }?.let { path ->
+            matchByBinaryName(path, profiles)?.let { return it }
         }
 
-        val agentEnv = System.getenv("AGENTELLIJ_BIN")?.trim()
-        if (!agentEnv.isNullOrEmpty()) {
-            matchByBinaryName(agentEnv)?.let { return it }
+        agentellijBin?.trim()?.takeIf { it.isNotEmpty() }?.let { path ->
+            matchByBinaryName(path, profiles)?.let { return it }
         }
 
         return profiles.first()
     }
 
-    fun allProfiles(): List<AgentProfile> = profiles.toList()
-
-    private fun matchByBinaryName(path: String): AgentProfile? {
+    private fun matchByBinaryName(path: String, profiles: List<AgentProfile>): AgentProfile? {
         val name = File(path).nameWithoutExtension.lowercase()
         return profiles.find { it.defaultBinary == name }
     }

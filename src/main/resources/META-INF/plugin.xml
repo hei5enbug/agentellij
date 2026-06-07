@@ -23,14 +23,16 @@
     </extensions>
 
     <actions>
-        <action id="com.agentellij.AddDirectoryToContext" class="com.agentellij.actions.AddDirectoryToContextAction">
+        <action id="com.agentellij.AddDirectoryToContext" class="com.agentellij.actions.AddDirectoryToContextAction"
+                text="AgentellIJ: Add to Context">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddToContext" class="com.agentellij.actions.AddFileToContextAction">
+        <action id="com.agentellij.AddToContext" class="com.agentellij.actions.AddFileToContextAction"
+                text="AgentellIJ: Add File to Context">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
@@ -38,7 +40,8 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddLinesToContext" class="com.agentellij.actions.AddLinesToContextAction">
+        <action id="com.agentellij.AddLinesToContext" class="com.agentellij.actions.AddLinesToContextAction"
+                text="AgentellIJ: Add Lines to Context">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>

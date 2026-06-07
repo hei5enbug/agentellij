@@ -22,7 +22,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 - **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree (`Ctrl+Shift+I` / `Cmd+Shift+I`)
 - **Drag & Drop** — Drop files from the project tree directly into the chat
 - **Background Process** — Agent runs in a hidden terminal tab; no window clutter
-- **Per-Project Sessions** — Each project gets an isolated, token-secured session
+- **Per-Project Sessions** — Each project gets an isolated, token-secured bridge session
 - **Configurable** — Custom binary path and CLI arguments via **Settings > Tools > AgentellIJ**
 
 ## Prerequisites
@@ -90,14 +90,16 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 
 **Settings > Tools > AgentellIJ**
 
-Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
+Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. AgentellIJ validates the selected mode against the active agent, so terminal-only agents such as Claude Code stay in TUI mode. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
 
 | Setting | Description | Default |
 |---|---|---|
 | Agent | Which AI coding agent to use | `OpenCode` |
 | Mode | Tool window runtime: interactive terminal (**TUI**) or embedded web UI (**GUI**) | `TUI` |
 | Agent binary path | Absolute path to the agent executable | _(empty — auto-detects from `PATH` or common install locations)_ |
-| Additional arguments | Extra CLI args appended after the agent binary | _(empty)_ |
+| Additional arguments | Extra CLI args appended after the agent binary; quoted values and escaped spaces are preserved | _(empty)_ |
+
+Bridge sessions are project-specific, but persistent agent state such as OpenCode `kv.json`, `model.json`, and `settings.json` follows the agent profile's state directory. Treat that state as user/agent scoped unless a future project-scoped state store is introduced.
 
 ### Environment Variables
 
@@ -119,6 +121,7 @@ com.agentellij
 │   └── AgentellIJActionPromoter   # Prioritizes AgentellIJ actions in menus
 ├── backend/           # Agent process lifecycle & profile management
 │   ├── AgentProfile               # Interface: agent-specific behavior
+│   ├── CustomArgsParser           # Shell-like parser for additional CLI arguments
 │   ├── AgentProfileResolver       # Resolves profile from settings/env
 │   ├── OpenCodeProfile            # OpenCode agent implementation
 │   ├── ClaudeCodeProfile          # Claude Code agent implementation
@@ -130,12 +133,15 @@ com.agentellij
 │   ├── IdeBridge                  # HTTP server on localhost (random port)
 │   ├── BridgeSession              # Per-project session with token auth
 │   ├── SessionInfo                # Session URL, token, and ID for clients
+│   ├── AgentStateStore            # kv/model/settings JSON state I/O
 │   └── MessageHandler             # Routes: openFile, openUrl, reloadPath, kv, model, settings
 ├── context/           # Context passing to agent
+│   ├── ProjectPathResolver        # Shared absolute/project-relative path normalization
 │   ├── ContextSender              # Sends file paths via bridge
 │   └── DragDropHandler            # AWT drag-and-drop → context
 ├── settings/          # Plugin configuration (persistent state)
 │   ├── AgentellIJSettings         # State: binary path, custom args
+│   ├── AgentModePolicy            # Validates modes against agent capabilities
 │   └── AgentellIJConfigurable     # Settings UI panel
 ├── ui/                # Tool window and browser
 │   ├── ChatToolWindowFactory      # Mode dispatcher (GUI vs TUI)
@@ -143,7 +149,8 @@ com.agentellij
 │   ├── TuiModeContent             # Terminal widget wrapper for interactive CLI
 │   └── OpenFilesTracker           # Syncs open/active files to agent
 └── util/              # Shared utilities
-    └── SafeUtils                  # closeQuietly, runQuietly, resolveAbsolutePath
+    ├── DebouncedTask              # Coalesces rapid event bursts
+    └── SafeUtils                  # closeQuietly, runQuietly, binary path resolution
 ```
 
 ### Communication Flow
@@ -165,8 +172,7 @@ IntelliJ IDEA                          Agent Backend
 ┌─────────────────────────────────────────────────┐
 │  MessageHandler                                  │
 │  openFile · openUrl · reloadPath                 │
-│  kv.get/update · model.get/update                │
-│  settings.get/update                             │
+│  kv/model/settings routes via AgentStateStore    │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -199,6 +205,10 @@ This launches a sandboxed IntelliJ instance with the plugin pre-installed.
 ```
 
 Runs JetBrains Plugin Verifier against recommended IDE versions.
+
+### CI
+
+GitHub Actions runs `./gradlew test`, `./gradlew build`, and `./gradlew verifyPlugin` on pull requests and pushes to `main`.
 
 ### Project Requirements
 

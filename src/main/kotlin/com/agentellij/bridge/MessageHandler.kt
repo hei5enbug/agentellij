@@ -3,8 +3,6 @@ package com.agentellij.bridge
 import com.agentellij.util.runQuietly
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
@@ -18,12 +16,12 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.LocalFileSystem
 import java.io.File
 
-class MessageHandler(private val mapper: ObjectMapper) {
+class MessageHandler(mapper: ObjectMapper) {
     private val LOG by lazy { Logger.getInstance(MessageHandler::class.java) }
-    private val profile by lazy { com.agentellij.backend.AgentProfileResolver.resolve() }
+    private val stateStore = AgentStateStore(mapper)
 
     private val statePath: File?
-        get() = profile.statePath
+        get() = com.agentellij.backend.AgentProfileResolver.resolve().statePath
 
     fun handle(session: BridgeSession, type: String?, id: String?, payload: JsonNode?) {
         when (type) {
@@ -154,109 +152,30 @@ class MessageHandler(private val mapper: ObjectMapper) {
     // --- KV Store ---
 
     private fun handleKvGet(session: BridgeSession, id: String?) {
-        val dir = statePath
-        if (dir == null) { IdeBridge.replyWithPayload(session, id, mapper.createObjectNode()); return }
-        val data = readJsonObject(File(dir, "kv.json"))
-        IdeBridge.replyWithPayload(session, id, data)
+        IdeBridge.replyWithPayload(session, id, stateStore.getKv(statePath))
     }
 
     private fun handleKvUpdate(session: BridgeSession, id: String?, payload: JsonNode?) {
-        val dir = statePath
-        if (dir == null) { IdeBridge.replyWithPayload(session, id, mapper.createObjectNode()); return }
-        val file = File(dir, "kv.json")
-        val existing = readJsonObject(file)
-        payload?.fields()?.forEach { (k, v) -> existing.set<JsonNode>(k, v) }
-        dir.mkdirs()
-        file.writeText(mapper.writeValueAsString(existing))
-        IdeBridge.replyWithPayload(session, id, existing)
+        IdeBridge.replyWithPayload(session, id, stateStore.updateKv(statePath, payload))
     }
 
     // --- Model Store ---
 
     private fun handleModelGet(session: BridgeSession, id: String?) {
-        val dir = statePath
-        if (dir == null) { IdeBridge.replyWithPayload(session, id, emptyModelData()); return }
-        val data = readModelData(File(dir, "model.json"))
-        IdeBridge.replyWithPayload(session, id, data)
+        IdeBridge.replyWithPayload(session, id, stateStore.getModel(statePath))
     }
 
     private fun handleModelUpdate(session: BridgeSession, id: String?, payload: JsonNode?) {
-        val dir = statePath
-        if (dir == null) { IdeBridge.replyWithPayload(session, id, emptyModelData()); return }
-        val file = File(dir, "model.json")
-        val existing = readModelData(file)
-        if (payload?.has("recent") == true) existing.set<JsonNode>("recent", payload.get("recent"))
-        if (payload?.has("favorite") == true) existing.set<JsonNode>("favorite", payload.get("favorite"))
-        if (payload?.has("variant") == true) {
-            val current = existing.get("variant") as? ObjectNode ?: mapper.createObjectNode()
-            payload.get("variant").fields().forEach { (k, v) -> current.set<JsonNode>(k, v) }
-            existing.set<JsonNode>("variant", current)
-        }
-        dir.mkdirs()
-        file.writeText(mapper.writeValueAsString(existing))
-        IdeBridge.replyWithPayload(session, id, existing)
-    }
-
-    private fun readModelData(file: File): ObjectNode {
-        val raw = readJsonObject(file)
-        return mapper.createObjectNode().apply {
-            set<JsonNode>("recent", if (raw.has("recent") && raw.get("recent").isArray) raw.get("recent") else mapper.createArrayNode())
-            set<JsonNode>("favorite", if (raw.has("favorite") && raw.get("favorite").isArray) raw.get("favorite") else mapper.createArrayNode())
-            set<JsonNode>("variant", if (raw.has("variant") && raw.get("variant").isObject) raw.get("variant") else mapper.createObjectNode())
-        }
-    }
-
-    private fun emptyModelData(): ObjectNode = mapper.createObjectNode().apply {
-        set<JsonNode>("recent", mapper.createArrayNode())
-        set<JsonNode>("favorite", mapper.createArrayNode())
-        set<JsonNode>("variant", mapper.createObjectNode())
+        IdeBridge.replyWithPayload(session, id, stateStore.updateModel(statePath, payload))
     }
 
     // --- Settings Store ---
 
     private fun handleSettingsGet(session: BridgeSession, id: String?) {
-        val data = readSettings()
-        IdeBridge.replyWithPayload(session, id, data)
+        IdeBridge.replyWithPayload(session, id, stateStore.getSettings(statePath))
     }
 
     private fun handleSettingsUpdate(session: BridgeSession, id: String?, payload: JsonNode?) {
-        val dir = statePath
-        if (dir == null) { IdeBridge.replyWithPayload(session, id, normalizeSettings(mapper.createObjectNode())); return }
-        val current = readSettings()
-        payload?.fields()?.forEach { (k, v) -> current.set<JsonNode>(k, v) }
-        val normalized = normalizeSettings(current)
-        dir.mkdirs()
-        File(dir, "settings.json").writeText(mapper.writeValueAsString(normalized))
-        IdeBridge.replyWithPayload(session, id, normalized)
-    }
-
-    private fun readSettings(): ObjectNode {
-        val dir = statePath ?: return normalizeSettings(mapper.createObjectNode())
-        return normalizeSettings(readJsonObject(File(dir, "settings.json")))
-    }
-
-    private fun normalizeSettings(raw: ObjectNode): ObjectNode {
-        val normalized = raw.deepCopy()
-        if (normalized.has("theme")) {
-            val theme = normalized.get("theme")
-            val valid = theme != null && theme.isTextual && (theme.asText() == "light" || theme.asText() == "dark")
-            if (!valid) normalized.remove("theme")
-        }
-        return normalized
-    }
-
-    // --- Helpers ---
-
-    private fun readJsonObject(file: File): ObjectNode {
-        return try {
-            if (file.exists()) {
-                val tree = mapper.readTree(file.readText())
-                if (tree is ObjectNode) tree else mapper.createObjectNode()
-            } else {
-                mapper.createObjectNode()
-            }
-        } catch (_: Throwable) {
-            mapper.createObjectNode()
-        }
+        IdeBridge.replyWithPayload(session, id, stateStore.updateSettings(statePath, payload))
     }
 }

@@ -1,8 +1,5 @@
 package com.agentellij.util
 
-import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.openapi.vfs.VirtualFile
-
 /** Close without throwing. Covers Closeable, HttpExchange, and any AutoCloseable. */
 fun AutoCloseable?.closeQuietly() {
     try { this?.close() } catch (_: Throwable) {}
@@ -11,12 +8,6 @@ fun AutoCloseable?.closeQuietly() {
 /** Run [block] and return its result, or null on any exception. */
 inline fun <T> runQuietly(block: () -> T): T? =
     try { block() } catch (_: Throwable) { null }
-
-/** Resolve a [VirtualFile] to its absolute path string, or null on failure. */
-fun VirtualFile.resolveAbsolutePath(): String? =
-    runQuietly {
-        if (isInLocalFileSystem) VfsUtilCore.virtualToIoFile(this).absolutePath else path
-    }
 
 /** Resolve a binary name to its absolute path via PATH lookup. Returns the input if already absolute or not found. */
 fun resolveAbsolutePath(binary: String): String {

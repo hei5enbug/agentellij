@@ -161,11 +161,7 @@ object IdeBridge {
     }
 
     private fun handleStaticFile(exchange: HttpExchange) {
-        exchange.responseHeaders.apply {
-            add("Access-Control-Allow-Origin", "*")
-            add("Access-Control-Allow-Methods", "GET, OPTIONS")
-            add("Access-Control-Allow-Headers", "Content-Type")
-        }
+        if (!BridgeCorsPolicy.apply(exchange, "GET, OPTIONS")) return
 
         if (exchange.requestMethod == "OPTIONS") {
             exchange.sendResponseHeaders(204, -1)
@@ -229,11 +225,7 @@ object IdeBridge {
     }
 
     private fun handleRequest(exchange: HttpExchange) {
-        exchange.responseHeaders.apply {
-            add("Access-Control-Allow-Origin", "*")
-            add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            add("Access-Control-Allow-Headers", "Content-Type")
-        }
+        if (!BridgeCorsPolicy.apply(exchange, "GET, POST, OPTIONS")) return
 
         if (exchange.requestMethod == "OPTIONS") {
             exchange.sendResponseHeaders(204, -1)
@@ -290,7 +282,7 @@ object IdeBridge {
             val writer = OutputStreamWriter(exchange.responseBody)
             writer.write("event: connected\ndata: ${mapper.writeValueAsString(data)}\n\n")
             writer.flush()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             synchronized(session.sseClients) { session.sseClients.remove(exchange) }
             exchange.closeQuietly()
         }

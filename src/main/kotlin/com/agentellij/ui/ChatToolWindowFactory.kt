@@ -1,6 +1,7 @@
 package com.agentellij.ui
 
 import com.agentellij.backend.AgentProfileResolver
+import com.agentellij.settings.AgentModePolicy
 import com.agentellij.settings.AgentellIJSettings
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
@@ -19,17 +20,24 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
         val modeDisposableRef = AtomicReference<Disposable?>(null)
 
         fun installMode(mode: String) {
+            val settings = AgentellIJSettings.getInstance()
+            val profile = AgentProfileResolver.resolve()
+            val normalizedMode = AgentModePolicy.normalizeModeForProfile(mode, profile)
+            if (settings.state.mode != normalizedMode) {
+                settings.state.mode = normalizedMode
+            }
+
             modeDisposableRef.getAndSet(null)?.let { Disposer.dispose(it) }
 
             toolWindow.contentManager.contents.toList().forEach {
                 toolWindow.contentManager.removeContent(it, true)
             }
 
-            val modeDisposable = Disposer.newDisposable("agentellij-mode-$mode")
+            val modeDisposable = Disposer.newDisposable("agentellij-mode-$normalizedMode")
             Disposer.register(toolWindow.disposable, modeDisposable)
             modeDisposableRef.set(modeDisposable)
 
-            when (mode) {
+            when (normalizedMode) {
                 "tui" -> TuiModeContent(project, toolWindow, modeDisposable).install()
                 else  -> GuiModeContent(project, toolWindow, modeDisposable).install()
             }
@@ -46,11 +54,7 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
                 val nextProfile = profiles[(currentIndex + 1) % profiles.size]
 
                 settings.state.activeAgent = nextProfile.id
-
-                val currentMode = settings.getMode()
-                if (currentMode !in nextProfile.supportedModes) {
-                    settings.state.mode = nextProfile.supportedModes.first()
-                }
+                settings.state.mode = AgentModePolicy.normalizeModeForProfile(settings.getMode(), nextProfile)
 
                 installMode(settings.getMode())
             }
@@ -72,9 +76,11 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
 
             override fun actionPerformed(e: AnActionEvent) {
                 val settings = AgentellIJSettings.getInstance()
+                val profile = AgentProfileResolver.resolve()
                 val newMode = if (settings.getMode() == "tui") "gui" else "tui"
-                settings.state.mode = newMode
-                installMode(newMode)
+                val normalizedMode = AgentModePolicy.normalizeModeForProfile(newMode, profile)
+                settings.state.mode = normalizedMode
+                installMode(normalizedMode)
             }
 
             override fun update(e: AnActionEvent) {

@@ -18,7 +18,7 @@ class ClaudeCodeProfile : AgentProfile {
     override fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String> {
         val args = mutableListOf(binary)
         if (customArgs.isNotBlank()) {
-            args.addAll(customArgs.split(" ").filter { it.isNotBlank() })
+            args.addAll(CustomArgsParser.parse(customArgs))
         }
         return args
     }

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.3.3"
+version = "0.3.4"
 
 repositories {
     mavenCentral()
@@ -57,7 +57,7 @@ intellijPlatform {
               <li><b>Real-Time Sync</b> — Open files and selections pushed to the agent automatically</li>
               <li><b>Context Shortcuts</b> — Use Ctrl+Shift+I / ⌘⇧I to add the current file, selected lines, or project tree selection based on focus, or use right-click actions</li>
               <li><b>Drag &amp; Drop</b> — Drop files from project tree into chat</li>
-              <li><b>Per-Project Sessions</b> — Isolated, token-secured sessions</li>
+              <li><b>Per-Project Sessions</b> — Isolated, token-secured bridge sessions</li>
               <li><b>Background Process</b> — Agent runs in a hidden terminal tab</li>
             </ul>
 

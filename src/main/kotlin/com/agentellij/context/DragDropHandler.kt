@@ -2,7 +2,6 @@ package com.agentellij.context
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.ui.jcef.JBCefBrowser
 import org.cef.browser.CefBrowser
 import org.cef.callback.CefDragData
@@ -35,19 +34,14 @@ object DragDropHandler {
                     if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
                         val files = transferable.getTransferData(DataFlavor.javaFileListFlavor)
                         if (files is List<*>) {
-                            files.filterIsInstance<File>().forEach { file ->
-                                paths.add(file.absolutePath)
-                            }
+                            paths.addAll(ProjectPathResolver.normalizeDroppedFiles(files.filterIsInstance<File>()))
                         }
                     }
 
                     if (transferable.isDataFlavorSupported(DataFlavor.stringFlavor)) {
                         val text = transferable.getTransferData(DataFlavor.stringFlavor) as? String
                         if (text != null && paths.isEmpty()) {
-                            text.lines().filter { it.isNotBlank() }.forEach { line ->
-                                val trimmed = line.trim()
-                                if (File(trimmed).exists()) paths.add(trimmed)
-                            }
+                            paths.addAll(ProjectPathResolver.parseDroppedText(text))
                         }
                     }
 

@@ -10,7 +10,7 @@ import javax.swing.JComponent
 import javax.swing.JTextField
 
 class AgentellIJConfigurable : Configurable {
-    private var agentComboBox: ComboBox<String>? = null
+    private var agentComboBox: ComboBox<AgentOption>? = null
     private var modeComboBox: ComboBox<String>? = null
     private var agentPathField: TextFieldWithBrowseButton? = null
     private var customArgsField: JTextField? = null
@@ -18,8 +18,10 @@ class AgentellIJConfigurable : Configurable {
     override fun getDisplayName(): String = "AgentellIJ"
 
     override fun createComponent(): JComponent {
-        val agentLabels = AgentProfileResolver.allProfiles().map { it.displayName }.toTypedArray()
-        agentComboBox = ComboBox(agentLabels)
+        val agentOptions = AgentProfileResolver.allProfiles()
+            .map { AgentOption(it.id, it.displayName) }
+            .toTypedArray()
+        agentComboBox = ComboBox(agentOptions)
         modeComboBox = ComboBox(arrayOf(GUI_MODE_LABEL, TUI_MODE_LABEL))
         agentPathField = TextFieldWithBrowseButton().apply {
             addBrowseFolderListener(
@@ -39,7 +41,7 @@ class AgentellIJConfigurable : Configurable {
             .addLabeledComponent("Agent binary path:", agentPathField!!)
             .addTooltip("Leave empty to auto-detect from PATH or common install locations")
             .addLabeledComponent("Additional arguments:", customArgsField!!)
-            .addTooltip("Extra arguments appended after the agent binary (space-separated)")
+            .addTooltip("Extra arguments appended after the agent binary; quotes and escaped spaces are preserved")
             .addComponentFillVertically(javax.swing.JPanel(), 0)
             .panel
     }
@@ -47,8 +49,10 @@ class AgentellIJConfigurable : Configurable {
     override fun isModified(): Boolean {
         val settings = AgentellIJSettings.getInstance()
         val selectedAgentId = getSelectedAgentId()
+        val selectedProfile = AgentModePolicy.resolveProfile(selectedAgentId, AgentProfileResolver.allProfiles())
+        val selectedMode = AgentModePolicy.normalizeModeForProfile(getSelectedMode(), selectedProfile)
         return selectedAgentId != settings.getActiveAgent() ||
-                getSelectedMode() != settings.getMode() ||
+                selectedMode != settings.getMode() ||
                 agentPathField?.text != settings.getAgentPath(selectedAgentId) ||
                 customArgsField?.text != settings.state.customArgs
     }
@@ -56,8 +60,9 @@ class AgentellIJConfigurable : Configurable {
     override fun apply() {
         val settings = AgentellIJSettings.getInstance()
         val selectedAgentId = getSelectedAgentId()
+        val selectedProfile = AgentModePolicy.resolveProfile(selectedAgentId, AgentProfileResolver.allProfiles())
         settings.state.activeAgent = selectedAgentId
-        settings.state.mode = AgentellIJSettings.normalizeMode(getSelectedMode())
+        settings.state.mode = AgentModePolicy.normalizeModeForProfile(getSelectedMode(), selectedProfile)
         settings.setAgentPath(selectedAgentId, agentPathField?.text?.trim() ?: "")
         settings.state.customArgs = customArgsField?.text?.trim() ?: ""
     }
@@ -65,8 +70,8 @@ class AgentellIJConfigurable : Configurable {
     override fun reset() {
         val settings = AgentellIJSettings.getInstance()
         val profile = AgentProfileResolver.resolve()
-        agentComboBox?.selectedItem = profile.displayName
-        modeComboBox?.selectedItem = modeToLabel(settings.getMode())
+        agentComboBox?.selectedItem = AgentOption(profile.id, profile.displayName)
+        modeComboBox?.selectedItem = modeToLabel(AgentModePolicy.normalizeModeForProfile(settings.getMode(), profile))
         agentPathField?.text = settings.getAgentPath(profile.id)
         customArgsField?.text = settings.state.customArgs
     }
@@ -79,9 +84,8 @@ class AgentellIJConfigurable : Configurable {
     }
 
     private fun getSelectedAgentId(): String {
-        val selectedLabel = agentComboBox?.selectedItem as? String ?: return "opencode"
-        return AgentProfileResolver.allProfiles()
-            .find { it.displayName == selectedLabel }?.id ?: "opencode"
+        val selectedOption = agentComboBox?.selectedItem as? AgentOption
+        return selectedOption?.id ?: AgentModePolicy.DEFAULT_AGENT_ID
     }
 
     private fun getSelectedMode(): String =
@@ -99,5 +103,9 @@ class AgentellIJConfigurable : Configurable {
     companion object {
         private const val GUI_MODE_LABEL = "GUI mode — embedded web UI"
         private const val TUI_MODE_LABEL = "TUI mode — terminal wrapper"
+    }
+
+    private data class AgentOption(val id: String, val label: String) {
+        override fun toString(): String = label
     }
 }

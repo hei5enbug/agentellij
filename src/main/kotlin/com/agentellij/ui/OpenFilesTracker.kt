@@ -10,8 +10,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.agentellij.bridge.IdeBridge
+import com.agentellij.context.ProjectPathResolver
+import com.agentellij.util.DebouncedTask
 import com.agentellij.util.runQuietly
-import java.nio.file.Paths
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -22,6 +23,10 @@ class OpenFilesTracker(
 ) : Disposable {
     private val logger = Logger.getInstance(OpenFilesTracker::class.java)
     private var scheduled: ScheduledFuture<*>? = null
+    private val debouncedPush = DebouncedTask(
+        AppExecutorUtil.getAppScheduledExecutorService(),
+        EVENT_DEBOUNCE_MS
+    ) { pushAsync() }
 
     fun install() {
         val bus = project.messageBus.connect(this)
@@ -29,9 +34,9 @@ class OpenFilesTracker(
         bus.subscribe(
             FileEditorManagerListener.FILE_EDITOR_MANAGER,
             object : FileEditorManagerListener {
-                override fun selectionChanged(event: FileEditorManagerEvent) { pushAsync() }
-                override fun fileOpened(source: FileEditorManager, file: VirtualFile) { pushAsync() }
-                override fun fileClosed(source: FileEditorManager, file: VirtualFile) { pushAsync() }
+                override fun selectionChanged(event: FileEditorManagerEvent) { debouncedPush.request() }
+                override fun fileOpened(source: FileEditorManager, file: VirtualFile) { debouncedPush.request() }
+                override fun fileClosed(source: FileEditorManager, file: VirtualFile) { debouncedPush.request() }
             }
         )
 
@@ -76,29 +81,16 @@ class OpenFilesTracker(
     }
 
     private fun toRelativePath(vf: VirtualFile?): String? {
-        if (vf == null) return null
-        val projBase = project.basePath
-            ?: return runQuietly { vf.toNioPath().toAbsolutePath().normalize().toString() } ?: vf.path
-
-        return runQuietly {
-            val filePath = vf.toNioPath().toAbsolutePath().normalize()
-            val base = Paths.get(projBase).toAbsolutePath().normalize()
-            val rel = if (filePath.startsWith(base)) base.relativize(filePath) else filePath
-            rel.toString().ifEmpty { vf.name }
-        } ?: fallbackRelativePath(vf, projBase)
-    }
-
-    private fun fallbackRelativePath(vf: VirtualFile, projBase: String): String {
-        val abs = runQuietly { vf.toNioPath().toAbsolutePath().normalize().toString() } ?: vf.path
-        return runQuietly {
-            val base = java.io.File(projBase).absoluteFile.normalize().path
-            val rel = if (abs.startsWith(base + java.io.File.separator)) abs.substring(base.length + 1) else abs
-            rel.ifEmpty { vf.name }
-        } ?: abs
+        return ProjectPathResolver.relativePath(vf, project.basePath)
     }
 
     override fun dispose() {
+        debouncedPush.cancel()
         runQuietly { scheduled?.cancel(false) }
         scheduled = null
+    }
+
+    private companion object {
+        const val EVENT_DEBOUNCE_MS = 250L
     }
 }

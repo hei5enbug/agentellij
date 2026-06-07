@@ -21,7 +21,7 @@ class OpenCodeProfile : AgentProfile {
             args += "serve"
         }
         if (customArgs.isNotBlank()) {
-            args.addAll(customArgs.split(" ").filter { it.isNotBlank() })
+            args.addAll(CustomArgsParser.parse(customArgs))
         }
         return args
     }

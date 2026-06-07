@@ -46,10 +46,7 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
 
     companion object {
         fun normalizeMode(mode: String?): String =
-            when (mode?.lowercase()) {
-                "gui", "tui" -> mode.lowercase()
-                else -> "tui"
-            }
+            AgentModePolicy.normalizeMode(mode)
 
         fun getInstance(): AgentellIJSettings =
             ApplicationManager.getApplication().getService(AgentellIJSettings::class.java)
