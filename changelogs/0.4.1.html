@@ -1,0 +1,9 @@
+<h3>0.4.1</h3>
+<ul>
+  <li>Add consent-based install prompts for missing agent CLIs in TUI and GUI modes — one click to install, or open settings, set a custom path, or retry</li>
+  <li>Run installs off the UI thread with cancellation, a timeout, and success/failure notifications</li>
+  <li>Resolve <code>npm</code> across nvm, fnm, Volta, asdf, and Homebrew so installs work from GUI-launched IDEs</li>
+  <li>Discover agent binaries from <code>CODEX_INSTALL_DIR</code>/<code>CODEX_HOME</code> and common Node locations</li>
+  <li>Harden TUI startup — background preparation with a retry path and a login shell that inherits your full <code>PATH</code></li>
+  <li>Require an IDE restart on plugin install, update, enable, or disable</li>
+</ul>

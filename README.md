@@ -32,6 +32,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 - **An AI coding agent** — Any terminal-based AI coding agent. For example:
   - [OpenCode](https://github.com/sst/opencode) — `npm i -g opencode-ai`
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm i -g @anthropic-ai/claude-code`
+  - [Codex CLI](https://github.com/openai/codex) — `npm i -g @openai/codex`
 
 ## Installation
 
@@ -90,7 +91,9 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 
 **Settings > Tools > AgentellIJ**
 
-Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. AgentellIJ validates the selected mode against the active agent, so terminal-only agents such as Claude Code stay in TUI mode. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
+Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. AgentellIJ validates the selected mode against the active agent, so terminal-only agents such as Claude Code and Codex CLI stay in TUI mode. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
+
+If the selected agent CLI is missing, AgentellIJ shows an install prompt with the exact command it will run. Installation only starts after you click **Install**; you can also open settings, configure a custom binary path, or retry detection without installing anything.
 
 | Setting | Description | Default |
 |---|---|---|
@@ -107,8 +110,12 @@ Bridge sessions are project-specific, but persistent agent state such as OpenCod
 |---|---|
 | `AGENTELLIJ_BIN` | Path to the agent binary (overrides `PATH` lookup) |
 | `OPENCODE_BIN` | Legacy fallback for OpenCode users |
+| `CLAUDE_CODE_BIN` | Path to the Claude Code binary |
+| `CODEX_BIN` | Path to the Codex CLI binary |
+| `CODEX_INSTALL_DIR` | Codex CLI install directory scanned during auto-detection |
+| `CODEX_HOME` | Codex home directory used to scan managed standalone installs |
 
-**Resolution order:** Settings path > `AGENTELLIJ_BIN` > agent-specific env vars (e.g., `OPENCODE_BIN`) > discovered binary (`PATH` first, then common install locations) > agent's default binary name
+**Resolution order:** Settings path > `AGENTELLIJ_BIN` > agent-specific env vars (e.g., `OPENCODE_BIN`, `CLAUDE_CODE_BIN`, `CODEX_BIN`) > discovered binary (`PATH` first, then common install locations) > agent's default binary name
 
 ## Architecture
 
@@ -125,6 +132,7 @@ com.agentellij
 │   ├── AgentProfileResolver       # Resolves profile from settings/env
 │   ├── OpenCodeProfile            # OpenCode agent implementation
 │   ├── ClaudeCodeProfile          # Claude Code agent implementation
+│   ├── CodexCliProfile            # Codex CLI agent implementation
 │   ├── BackendLauncher            # Launches agent process with fallback
 │   ├── BackendProcess             # Process abstraction interface
 │   ├── DirectBackendProcess       # Direct process with piped stdout

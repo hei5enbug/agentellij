@@ -26,6 +26,11 @@ class OpenCodeProfile : AgentProfile {
         return args
     }
 
+    override fun buildInstallCommand(isWindows: Boolean): List<String> =
+        npmInstallGlobalCommand("opencode-ai", isWindows)
+
+    override val installCommandLabel = "npm install -g opencode-ai"
+
     override val serverUrlPattern = Regex(
         "(?:server\\s+)?listening\\s+on\\s+(https?://\\S+)",
         RegexOption.IGNORE_CASE

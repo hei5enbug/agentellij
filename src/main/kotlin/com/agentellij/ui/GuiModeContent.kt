@@ -7,6 +7,7 @@ import com.agentellij.bridge.IdeBridge
 import com.agentellij.context.DragDropHandler
 import com.agentellij.settings.AgentellIJConfigurable
 import com.agentellij.util.closeQuietly
+import com.agentellij.util.resolveAbsolutePath
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -96,6 +97,42 @@ class GuiModeContent(
 
             AppExecutorUtil.getAppExecutorService().execute {
                 if (launchGeneration.get() != gen) return@execute
+
+                val launchCommand = try {
+                    BackendLauncher.buildLaunchCommand(BackendLauncher.MODE_GUI)
+                } catch (e: Exception) {
+                    logger.warn("Failed to build GUI launch command", e)
+                    if (launchGeneration.get() != gen) return@execute
+                    SwingUtilities.invokeLater {
+                        showRecoverableError(mainPanel, "Failed to build backend launch command:<br/>${e.message}", { startBackend() })
+                    }
+                    timeoutRef.get()?.cancel(false)
+                    return@execute
+                }
+
+                val binary = launchCommand.firstOrNull()
+                if (binary.isNullOrBlank()) {
+                    if (launchGeneration.get() != gen) return@execute
+                    SwingUtilities.invokeLater { showRecoverableError(mainPanel, "Agent binary is not configured.", { startBackend() }) }
+                    timeoutRef.get()?.cancel(false)
+                    return@execute
+                }
+
+                val resolvedBinary = resolveAbsolutePath(binary)
+                if (!isUsableBinary(binary, resolvedBinary)) {
+                    if (launchGeneration.get() != gen) return@execute
+                    SwingUtilities.invokeLater {
+                        AgentCliInstallPanel.showMissingCli(
+                            project = project,
+                            mainPanel = mainPanel,
+                            profile = profile,
+                            binary = binary,
+                            retryAction = { startBackend() }
+                        )
+                    }
+                    timeoutRef.get()?.cancel(false)
+                    return@execute
+                }
 
                 val proc = try {
                     BackendLauncher.launchBackend(project)
@@ -299,6 +336,14 @@ class GuiModeContent(
             isEditable = false
             isOpaque = false
         }
+    }
+
+    private fun isUsableBinary(binary: String, resolvedBinary: String): Boolean {
+        val resolvedFile = java.io.File(resolvedBinary)
+        if (resolvedFile.isAbsolute) return resolvedFile.exists() && resolvedFile.canExecute()
+
+        val rawFile = java.io.File(binary)
+        return rawFile.isAbsolute && rawFile.exists() && rawFile.canExecute()
     }
 
     private fun showError(mainPanel: JPanel, message: String) {

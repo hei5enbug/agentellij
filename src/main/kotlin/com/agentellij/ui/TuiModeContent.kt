@@ -1,14 +1,18 @@
 package com.agentellij.ui
 
 import com.agentellij.backend.BackendLauncher
-import com.agentellij.util.resolveAbsolutePath
+import com.agentellij.backend.AgentProfileResolver
+import com.agentellij.backend.TerminalShellCommand
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.terminal.ui.TerminalWidget
+import com.intellij.util.concurrency.AppExecutorUtil
 import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
@@ -20,7 +24,6 @@ import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionListener
-import java.io.File
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -44,48 +47,96 @@ class TuiModeContent(
         fun getWidget(project: Project): TerminalWidget? = widgets[project]
     }
 
+    private val disposed = AtomicBoolean(false)
+
+    init {
+        Disposer.register(parentDisposable) { disposed.set(true) }
+    }
+
     fun install() {
         val mainPanel = JPanel(BorderLayout())
         val content = toolWindow.contentManager.factory.createContent(mainPanel, "", false)
         toolWindow.contentManager.addContent(content)
+        val profile = AgentProfileResolver.resolve()
 
-        val baseDir = project.basePath ?: System.getProperty("user.dir")
-        val launchCommand = try {
-            BackendLauncher.buildLaunchCommand(BackendLauncher.MODE_TUI)
-        } catch (e: Exception) {
-            logger.warn("Failed to build TUI launch command", e)
-            showError(mainPanel, "Failed to build TUI launch command:<br/>${e.message}")
-            return
+        fun retryInstall() {
+            toolWindow.contentManager.removeContent(content, true)
+            install()
         }
 
-        val binary = launchCommand.firstOrNull()
-        if (binary.isNullOrBlank()) {
-            showError(mainPanel, "Agent binary is not configured.")
-            return
-        }
+        showLoading(mainPanel, "Preparing ${escapeHtml(profile.displayName)}...")
+        AppExecutorUtil.getAppExecutorService().execute {
+            try {
+                val baseDir = project.basePath ?: System.getProperty("user.dir")
+                val plan = BackendLauncher.buildTuiLaunchPlan(profile)
+                if (!plan.installed) {
+                    showOnEdt {
+                        AgentCliInstallPanel.showMissingCli(
+                            project = project,
+                            mainPanel = mainPanel,
+                            profile = profile,
+                            binary = profile.defaultBinary,
+                            retryAction = ::retryInstall
+                        )
+                    }
+                    return@execute
+                }
 
-        val resolvedBinary = resolveAbsolutePath(binary)
-        if (!isUsableBinary(binary, resolvedBinary)) {
-            showError(
-                mainPanel,
-                "Agent binary not found:<br/><code>${escapeHtml(binary)}</code><br/><br/>Install it or configure an absolute path in settings."
-            )
-            return
+                showOnEdt { startTerminal(mainPanel, baseDir, plan.command) }
+            } catch (t: Throwable) {
+                logger.warn("Failed to prepare TUI backend", t)
+                showOnEdt {
+                    showError(
+                        mainPanel,
+                        "Failed to prepare ${escapeHtml(profile.displayName)}:<br/>${escapeHtml(t.message ?: t.javaClass.name)}"
+                    )
+                }
+            }
         }
+    }
 
-        val terminalWidget = try {
-            val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+    /**
+     * Runs [block] on the EDT, but only if this mode's content is still alive.
+     * Using [ModalityState.any] guarantees the update is delivered even while a modal
+     * dialog is open, and the disposal guard prevents touching a tool window that was
+     * torn down (for example, after a mode switch or plugin reload) — which previously
+     * could leave the panel stuck on "Preparing…".
+     */
+    private fun showOnEdt(block: () -> Unit) {
+        ApplicationManager.getApplication().invokeLater(
+            {
+                if (!disposed.get() && !project.isDisposed) {
+                    block()
+                }
+            },
+            ModalityState.any()
+        )
+    }
+
+    private fun startTerminal(mainPanel: JPanel, baseDir: String, launchCommand: List<String>) {
+        val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+        val (terminalWidget, fallbackCommand) = try {
             val options = ShellStartupOptions.Builder()
                 .workingDirectory(baseDir)
+                .shellCommand(TerminalShellCommand.wrap(launchCommand))
                 .build()
-            runner.startShellTerminalWidget(parentDisposable, options, true)
+            runner.startShellTerminalWidget(parentDisposable, options, true) to null
         } catch (e: Exception) {
-            logger.warn("Failed to create terminal widget", e)
-            showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")
-            return
+            logger.warn("Failed to create terminal widget with startup shell command", e)
+            try {
+                val options = ShellStartupOptions.Builder()
+                    .workingDirectory(baseDir)
+                    .build()
+                runner.startShellTerminalWidget(parentDisposable, options, true) to TerminalShellCommand.renderInner(launchCommand)
+            } catch (fallbackError: Exception) {
+                logger.warn("Failed to create terminal widget", fallbackError)
+                showError(mainPanel, "Failed to create terminal widget:<br/>${fallbackError.message}")
+                return
+            }
         }
 
         widgets[project] = terminalWidget
+        mainPanel.removeAll()
         mainPanel.add(terminalWidget.component, BorderLayout.CENTER)
         mainPanel.revalidate()
         mainPanel.repaint()
@@ -103,14 +154,16 @@ class TuiModeContent(
             runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }
         }
 
-        try {
-            executeCommand(terminalWidget, launchCommand.toShellCommand())
-        } catch (e: Exception) {
-            logger.warn("Failed to start TUI command", e)
-            widgets.remove(project)
-            destroyTerminalProcess(terminalWidget)
-            runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }
-            showError(mainPanel, "Failed to start TUI command:<br/>${e.message}")
+        if (fallbackCommand != null) {
+            try {
+                executeCommand(terminalWidget, fallbackCommand)
+            } catch (e: Exception) {
+                logger.warn("Failed to start TUI command", e)
+                widgets.remove(project)
+                destroyTerminalProcess(terminalWidget)
+                runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }
+                showError(mainPanel, "Failed to start TUI command:<br/>${e.message}")
+            }
         }
     }
 
@@ -177,48 +230,11 @@ class TuiModeContent(
         return SwingUtilities.isDescendingFrom(focusOwner, terminalComponent)
     }
 
-    private fun isUsableBinary(binary: String, resolvedBinary: String): Boolean {
-        val resolvedFile = File(resolvedBinary)
-        if (resolvedFile.isAbsolute) return resolvedFile.exists() && resolvedFile.canExecute()
+    private fun showLoading(mainPanel: JPanel, message: String) = showCenteredMessage(mainPanel, message)
 
-        val rawFile = File(binary)
-        return rawFile.isAbsolute && rawFile.exists() && rawFile.canExecute()
-    }
+    private fun showError(mainPanel: JPanel, message: String) = showCenteredMessage(mainPanel, message)
 
-    private fun List<String>.toShellCommand(): String = joinToString(" ") { it.shellQuote() }
-
-    private fun String.shellQuote(): String {
-        val windows = System.getProperty("os.name").lowercase().contains("win")
-        return if (windows) {
-            if (isEmpty()) "\"\"" else if (any { it.isWhitespace() || it == '"' }) {
-                "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-            } else {
-                this
-            }
-        } else {
-            if (isEmpty()) "''" else if (any { it.isWhitespace() || it in "'\\\"$`()[]{}*?&;|<>" }) {
-                "'" + replace("'", "'\"'\"'") + "'"
-            } else {
-                this
-            }
-        }
-    }
-
-    private fun escapeHtml(value: String): String = buildString(value.length) {
-        for (ch in value) {
-            append(
-                when (ch) {
-                    '<' -> "&lt;"
-                    '>' -> "&gt;"
-                    '&' -> "&amp;"
-                    '"' -> "&quot;"
-                    else -> ch
-                }
-            )
-        }
-    }
-
-    private fun showError(mainPanel: JPanel, message: String) {
+    private fun showCenteredMessage(mainPanel: JPanel, message: String) {
         mainPanel.removeAll()
         mainPanel.add(JPanel(BorderLayout()).apply {
             add(JLabel("<html><center>$message</center></html>"), BorderLayout.CENTER)

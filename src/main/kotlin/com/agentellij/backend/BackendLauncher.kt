@@ -12,7 +12,6 @@ object BackendLauncher {
     private val isWindows = System.getProperty("os.name").lowercase().contains("win")
 
     const val MODE_GUI = "gui"
-    const val MODE_TUI = "tui"
 
     fun launchBackend(project: Project): BackendProcess = launchBackend(project, AgentProfileResolver.resolve())
 
@@ -51,6 +50,19 @@ object BackendLauncher {
         val profile = AgentProfileResolver.resolve()
         val customArgs = AgentellIJSettings.getInstance().state.customArgs.trim()
         return buildLaunchCommand(profile, mode, customArgs)
+    }
+
+    fun buildTuiLaunchPlan(profile: AgentProfile): TuiLaunchPlan {
+        val settings = AgentellIJSettings.getInstance()
+        return TuiLaunchPlanner.plan(
+            profile = profile,
+            settingsPath = settings.getAgentPath(profile.id).trim(),
+            customArgs = settings.state.customArgs.trim(),
+            agentellijBin = System.getenv("AGENTELLIJ_BIN"),
+            agentSpecificEnv = { System.getenv(it) },
+            discoverBinary = ::discoverBinary,
+            canExecute = { java.io.File(it).canExecute() }
+        )
     }
 
     private fun launchDirect(
@@ -153,7 +165,6 @@ object BackendLauncher {
             discoverBinary = ::discoverBinary,
             canExecute = { path -> java.io.File(path).canExecute() },
             onDiscovered = { discoveredBinary ->
-                settings.setAgentPath(profile.id, discoveredBinary)
                 logger.info("Auto-detected ${profile.displayName} binary at: $discoveredBinary")
             }
         )
@@ -175,28 +186,33 @@ object BackendLauncher {
         val home = System.getProperty("user.home").orEmpty()
         val nvmDir = System.getenv("NVM_DIR").orEmpty().ifBlank { "$home/.nvm" }
         val installDir = System.getenv("OPENCODE_INSTALL_DIR").orEmpty()
+        val codexInstallDir = System.getenv("CODEX_INSTALL_DIR").orEmpty()
+        val codexHome = System.getenv("CODEX_HOME").orEmpty().ifBlank { "$home/.codex" }
         val xdgBinDir = System.getenv("XDG_BIN_DIR").orEmpty()
         val localAppData = System.getenv("LOCALAPPDATA").orEmpty()
         val appData = System.getenv("APPDATA").orEmpty()
         val userProfile = System.getenv("USERPROFILE").orEmpty().ifBlank { home }
         val suffixes = if (isWindows) listOf(".exe", ".cmd", ".bat", "") else listOf("")
 
-        val searchDirs = linkedSetOf(
-            installDir,
-            xdgBinDir,
-            "$home/bin",
-            "$home/.opencode/bin",
-            "$home/.local/bin",
-            "$home/.npm-global/bin",
-            "$nvmDir/current/bin",
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "$appData/npm",
-            "$localAppData/npm",
-            "$userProfile/scoop/shims",
-            "C:/ProgramData/chocolatey/bin"
-        ).filter { it.isNotBlank() }
+        val searchDirs = (
+            listOf(
+                installDir,
+                codexInstallDir,
+                xdgBinDir,
+                "$home/bin",
+                "$home/.opencode/bin",
+                "$codexHome/packages/standalone/current",
+            ) +
+                NodeCliResolver.nodeBinDirs(userHome = home) +
+                listOf(
+                    "$nvmDir/current/bin",
+                    "$localAppData/Programs/OpenAI/Codex/bin",
+                    "$appData/npm",
+                    "$localAppData/npm",
+                    "$userProfile/scoop/shims",
+                    "C:/ProgramData/chocolatey/bin",
+                )
+            ).distinct().filter { it.isNotBlank() }
 
         return sequence {
             for (dir in searchDirs) {

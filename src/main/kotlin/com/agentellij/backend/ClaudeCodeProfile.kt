@@ -23,6 +23,11 @@ class ClaudeCodeProfile : AgentProfile {
         return args
     }
 
+    override fun buildInstallCommand(isWindows: Boolean): List<String> =
+        npmInstallGlobalCommand("@anthropic-ai/claude-code", isWindows)
+
+    override val installCommandLabel = "npm install -g @anthropic-ai/claude-code"
+
     override val serverUrlPattern: Regex = Regex("(?!x)x")
 
     override val statePath: File? = null

@@ -23,6 +23,11 @@ class CodexCliProfile : AgentProfile {
         return args
     }
 
+    override fun buildInstallCommand(isWindows: Boolean): List<String> =
+        npmInstallGlobalCommand("@openai/codex", isWindows)
+
+    override val installCommandLabel = "npm install -g @openai/codex"
+
     override val serverUrlPattern: Regex = Regex("(?!x)x")
 
     override val statePath: File? = null

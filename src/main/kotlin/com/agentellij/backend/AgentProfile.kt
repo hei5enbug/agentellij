@@ -34,6 +34,16 @@ interface AgentProfile {
     fun buildLaunchArgs(binary: String, customArgs: String, mode: String): List<String>
 
     /**
+     * Build the user-approved install command for this agent, or null when automatic
+     * installation is not supported.
+     */
+    fun buildInstallCommand(isWindows: Boolean = currentPlatformIsWindows()): List<String>? = null
+
+    /** Human-readable install command shown before the user consents to run it. */
+    val installCommandLabel: String?
+        get() = null
+
+    /**
      * UI modes this agent supports (e.g. `["tui"]` or `["tui", "gui"]`).
      */
     val supportedModes: List<String>
@@ -50,3 +60,10 @@ interface AgentProfile {
      */
     val statePath: File?
 }
+
+internal fun currentPlatformIsWindows(): Boolean =
+    System.getProperty("os.name").lowercase().contains("win")
+
+internal fun npmInstallGlobalCommand(packageName: String, isWindows: Boolean): List<String> =
+    if (isWindows) listOf("cmd", "/c", "npm", "install", "-g", packageName)
+    else listOf("npm", "install", "-g", packageName)

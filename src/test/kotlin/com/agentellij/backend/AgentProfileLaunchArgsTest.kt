@@ -26,6 +26,31 @@ class AgentProfileLaunchArgsTest {
     }
 
     @Test
+    fun `codex launch args never include gui serve command`() {
+        val args = CodexCliProfile().buildLaunchArgs("codex", "--model gpt-5", "gui")
+
+        assertEquals(listOf("codex", "--model", "gpt-5"), args)
+    }
+
+    @Test
+    fun `profiles expose user-approved npm install commands`() {
+        assertEquals(listOf("npm", "install", "-g", "opencode-ai"), OpenCodeProfile().buildInstallCommand(isWindows = false))
+        assertEquals(
+            listOf("npm", "install", "-g", "@anthropic-ai/claude-code"),
+            ClaudeCodeProfile().buildInstallCommand(isWindows = false)
+        )
+        assertEquals(listOf("npm", "install", "-g", "@openai/codex"), CodexCliProfile().buildInstallCommand(isWindows = false))
+    }
+
+    @Test
+    fun `windows npm install command runs through cmd`() {
+        assertEquals(
+            listOf("cmd", "/c", "npm", "install", "-g", "@openai/codex"),
+            CodexCliProfile().buildInstallCommand(isWindows = true)
+        )
+    }
+
+    @Test
     fun `custom args parser preserves quoted paths with spaces`() {
         val args = OpenCodeProfile().buildLaunchArgs("opencode", "--config \"/Users/me/My Config/opencode.json\"", "tui")
 

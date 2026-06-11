@@ -1,4 +1,4 @@
-<idea-plugin>
+<idea-plugin require-restart="true">
     <id>com.agentellij</id>
     <name>AgentellIJ</name>
     <vendor email="kbm0598@gmail.com" url="https://github.com/hei5enbug/agentellij">AgentellIJ</vendor>
@@ -15,9 +15,10 @@
         <toolWindow id="AgentellIJ" factoryClass="com.agentellij.ui.ChatToolWindowFactory" anchor="right"
                     icon="/icons/agentellij-icon.svg"/>
         <applicationConfigurable instance="com.agentellij.settings.AgentellIJConfigurable"
-                                 id="com.agentellij.settings"
-                                 parentId="tools"
-                                 key="settings.displayName"/>
+                                  id="com.agentellij.settings"
+                                  parentId="tools"
+                                  key="settings.displayName"/>
+        <notificationGroup id="AgentellIJ" displayType="BALLOON"/>
         <applicationService serviceImplementation="com.agentellij.settings.AgentellIJSettings"/>
         <actionPromoter implementation="com.agentellij.actions.AgentellIJActionPromoter"/>
     </extensions>
