@@ -19,7 +19,7 @@ internal object BackendBinaryResolver {
         }
 
         val discoveredBinary = discoverBinary(profile.defaultBinary)
-        if (settingsPath.isBlank() && discoveredBinary != null) {
+        if ((settingsPath.isBlank() || profile.id == "codex") && discoveredBinary != null) {
             onDiscovered(discoveredBinary)
             return discoveredBinary
         }

@@ -17,6 +17,7 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
         var activeAgent: String = "opencode",
         var agentPath: String = "",
         var claudeAgentPath: String = "",
+        var codexAgentPath: String = "",
         var customArgs: String = ""
     )
 
@@ -34,12 +35,14 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
 
     fun getAgentPath(agentId: String): String = when (agentId) {
         "claude" -> state.claudeAgentPath
+        "codex" -> state.codexAgentPath
         else -> state.agentPath
     }
 
     fun setAgentPath(agentId: String, path: String) {
         when (agentId) {
             "claude" -> state.claudeAgentPath = path
+            "codex" -> state.codexAgentPath = path
             else -> state.agentPath = path
         }
     }

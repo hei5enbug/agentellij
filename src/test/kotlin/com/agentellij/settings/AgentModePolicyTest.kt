@@ -2,6 +2,7 @@ package com.agentellij.settings
 
 import com.agentellij.backend.AgentProfile
 import com.agentellij.backend.ClaudeCodeProfile
+import com.agentellij.backend.CodexCliProfile
 import com.agentellij.backend.OpenCodeProfile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -18,6 +19,13 @@ class AgentModePolicyTest {
     @Test
     fun `claude gui mode normalizes to tui`() {
         val mode = AgentModePolicy.normalizeModeForProfile("gui", ClaudeCodeProfile())
+
+        assertEquals("tui", mode)
+    }
+
+    @Test
+    fun `codex gui mode normalizes to tui`() {
+        val mode = AgentModePolicy.normalizeModeForProfile("gui", CodexCliProfile())
 
         assertEquals("tui", mode)
     }

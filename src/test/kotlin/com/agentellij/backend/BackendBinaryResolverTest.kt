@@ -49,6 +49,20 @@ class BackendBinaryResolverTest {
     }
 
     @Test
+    fun `codex agent specific env is used before discovery`() {
+        val resolved = BackendBinaryResolver.resolve(
+            profile = CodexCliProfile(),
+            settingsPath = "",
+            agentellijBin = null,
+            agentSpecificEnv = { envVar -> if (envVar == "CODEX_BIN") "/agent-env/codex" else null },
+            discoverBinary = { "/discovered/codex" },
+            canExecute = { it == "/agent-env/codex" }
+        )
+
+        assertEquals("/agent-env/codex", resolved)
+    }
+
+    @Test
     fun `discovery writes back only when no explicit settings path exists`() {
         val discovered = mutableListOf<String>()
 
@@ -82,6 +96,24 @@ class BackendBinaryResolverTest {
 
         assertEquals("opencode", resolved)
         assertEquals(emptyList<String>(), discovered)
+    }
+
+    @Test
+    fun `codex discovery updates stale explicit settings path`() {
+        val discovered = mutableListOf<String>()
+
+        val resolved = BackendBinaryResolver.resolve(
+            profile = CodexCliProfile(),
+            settingsPath = "/configured/missing-codex",
+            agentellijBin = null,
+            agentSpecificEnv = { null },
+            discoverBinary = { binaryName -> if (binaryName == "codex") "/usr/local/bin/codex" else null },
+            canExecute = { false },
+            onDiscovered = { discovered += it }
+        )
+
+        assertEquals("/usr/local/bin/codex", resolved)
+        assertEquals(listOf("/usr/local/bin/codex"), discovered)
     }
 
     @Test

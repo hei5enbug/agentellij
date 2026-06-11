@@ -14,7 +14,8 @@ import java.io.File
 object AgentProfileResolver {
     private val profiles: List<AgentProfile> = listOf(
         OpenCodeProfile(),
-        ClaudeCodeProfile()
+        ClaudeCodeProfile(),
+        CodexCliProfile()
     )
 
     /**

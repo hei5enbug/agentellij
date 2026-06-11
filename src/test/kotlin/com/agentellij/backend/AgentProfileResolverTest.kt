@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class AgentProfileResolverTest {
-    private val profiles = listOf(OpenCodeProfile(), ClaudeCodeProfile())
+    private val profiles = listOf(OpenCodeProfile(), ClaudeCodeProfile(), CodexCliProfile())
 
     @Test
     fun `active agent id wins over binary path hints`() {
@@ -16,6 +16,13 @@ class AgentProfileResolverTest {
         )
 
         assertEquals("claude", profile.id)
+    }
+
+    @Test
+    fun `production profile registry includes codex`() {
+        val profileIds = AgentProfileResolver.allProfiles().map { it.id }
+
+        assertEquals(listOf("opencode", "claude", "codex"), profileIds)
     }
 
     @Test
@@ -40,6 +47,18 @@ class AgentProfileResolverTest {
         )
 
         assertEquals("claude", profile.id)
+    }
+
+    @Test
+    fun `codex settings path filename selects codex profile when active id is unknown`() {
+        val profile = AgentProfileResolver.resolveProfile(
+            activeAgentId = "unknown",
+            settingsPath = "/opt/bin/codex",
+            agentellijBin = null,
+            profiles = profiles
+        )
+
+        assertEquals("codex", profile.id)
     }
 
     @Test
