@@ -17,12 +17,11 @@ class AddFileToContextAction : AnAction() {
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        val file = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
         val project = e.project ?: return
-        val path = ProjectPathResolver.absolutePath(file) ?: return
-
-        if (path.isNotEmpty()) {
-            ContextSender.insertPaths(project, listOf(path))
-        }
+        val files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)?.takeIf { it.isNotEmpty() }
+            ?: e.getData(CommonDataKeys.VIRTUAL_FILE)?.let { arrayOf(it) }
+            ?: return
+        val paths = files.mapNotNull { ProjectPathResolver.absolutePath(it) }.distinct()
+        if (paths.isNotEmpty()) ContextSender.insertPaths(project, paths)
     }
 }
