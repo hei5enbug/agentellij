@@ -1,11 +1,13 @@
 package com.agentellij.settings
 
+import com.agentellij.backend.AgentProfile
 import com.agentellij.backend.AgentProfileResolver
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.util.ui.FormBuilder
+import java.awt.event.ItemEvent
 import javax.swing.JComponent
 import javax.swing.JTextField
 
@@ -14,6 +16,7 @@ class AgentellIJConfigurable : Configurable {
     private var modeComboBox: ComboBox<String>? = null
     private var agentPathField: TextFieldWithBrowseButton? = null
     private var customArgsField: JTextField? = null
+    private var agentPathSelectionState: AgentPathSelectionState? = null
 
     override fun getDisplayName(): String = "AgentellIJ"
 
@@ -33,6 +36,17 @@ class AgentellIJConfigurable : Configurable {
         }
         customArgsField = JTextField()
 
+        agentComboBox?.addItemListener { event ->
+            if (event.stateChange == ItemEvent.SELECTED) {
+                val selectedOption = event.item as? AgentOption ?: return@addItemListener
+                val nextPath = agentPathSelectionState?.selectAgent(
+                    agentId = selectedOption.id,
+                    currentPath = agentPathField?.text.orEmpty()
+                ) ?: AgentellIJSettings.getInstance().getAgentPath(selectedOption.id)
+                agentPathField?.text = nextPath
+            }
+        }
+
         return FormBuilder.createFormBuilder()
             .addLabeledComponent("Agent:", agentComboBox!!)
             .addTooltip("Select which AI agent to use")
@@ -51,9 +65,13 @@ class AgentellIJConfigurable : Configurable {
         val selectedAgentId = getSelectedAgentId()
         val selectedProfile = AgentModePolicy.resolveProfile(selectedAgentId, AgentProfileResolver.allProfiles())
         val selectedMode = AgentModePolicy.normalizeModeForProfile(getSelectedMode(), selectedProfile)
+        val agentPaths = agentPathSelectionState?.snapshot(
+            selectedAgentId = selectedAgentId,
+            currentPath = agentPathField?.text.orEmpty()
+        ) ?: mapOf(selectedAgentId to agentPathField?.text.orEmpty())
         return selectedAgentId != settings.getActiveAgent() ||
                 selectedMode != settings.getMode() ||
-                agentPathField?.text != settings.getAgentPath(selectedAgentId) ||
+                agentPaths.any { (agentId, path) -> path != settings.getAgentPath(agentId) } ||
                 customArgsField?.text != settings.state.customArgs
     }
 
@@ -63,16 +81,25 @@ class AgentellIJConfigurable : Configurable {
         val selectedProfile = AgentModePolicy.resolveProfile(selectedAgentId, AgentProfileResolver.allProfiles())
         settings.state.activeAgent = selectedAgentId
         settings.state.mode = AgentModePolicy.normalizeModeForProfile(getSelectedMode(), selectedProfile)
-        settings.setAgentPath(selectedAgentId, agentPathField?.text?.trim() ?: "")
+        val agentPaths = agentPathSelectionState?.snapshot(
+            selectedAgentId = selectedAgentId,
+            currentPath = agentPathField?.text.orEmpty()
+        ) ?: mapOf(selectedAgentId to agentPathField?.text.orEmpty())
+        agentPaths.forEach { (agentId, path) -> settings.setAgentPath(agentId, path.trim()) }
         settings.state.customArgs = customArgsField?.text?.trim() ?: ""
     }
 
     override fun reset() {
         val settings = AgentellIJSettings.getInstance()
         val profile = AgentProfileResolver.resolve()
+        agentPathSelectionState = AgentPathSelectionState(
+            profiles = AgentProfileResolver.allProfiles(),
+            selectedAgentId = profile.id,
+            pathProvider = settings::getAgentPath
+        )
         agentComboBox?.selectedItem = AgentOption(profile.id, profile.displayName)
         modeComboBox?.selectedItem = modeToLabel(AgentModePolicy.normalizeModeForProfile(settings.getMode(), profile))
-        agentPathField?.text = settings.getAgentPath(profile.id)
+        agentPathField?.text = agentPathSelectionState?.currentPath().orEmpty()
         customArgsField?.text = settings.state.customArgs
     }
 
@@ -81,6 +108,7 @@ class AgentellIJConfigurable : Configurable {
         modeComboBox = null
         agentPathField = null
         customArgsField = null
+        agentPathSelectionState = null
     }
 
     private fun getSelectedAgentId(): String {
@@ -107,5 +135,28 @@ class AgentellIJConfigurable : Configurable {
 
     private data class AgentOption(val id: String, val label: String) {
         override fun toString(): String = label
+    }
+}
+
+internal class AgentPathSelectionState(
+    profiles: List<AgentProfile>,
+    selectedAgentId: String,
+    pathProvider: (String) -> String
+) {
+    private val pathsByAgentId = profiles.associate { profile -> profile.id to pathProvider(profile.id) }.toMutableMap()
+    private var currentAgentId = selectedAgentId
+
+    fun currentPath(): String = pathsByAgentId[currentAgentId].orEmpty()
+
+    fun selectAgent(agentId: String, currentPath: String): String {
+        pathsByAgentId[currentAgentId] = currentPath
+        currentAgentId = agentId
+        return pathsByAgentId[agentId].orEmpty()
+    }
+
+    fun snapshot(selectedAgentId: String, currentPath: String): Map<String, String> {
+        pathsByAgentId[selectedAgentId] = currentPath
+        currentAgentId = selectedAgentId
+        return pathsByAgentId.toMap()
     }
 }

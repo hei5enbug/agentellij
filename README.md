@@ -18,6 +18,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 
 - **Embedded Chat UI** — Agent's web interface rendered inside IntelliJ via JCEF (Chromium)
 - **TUI & GUI Modes** — Switch between terminal and browser-based UI instantly via the toolbar toggle button
+- **Multiple Agents** — Run OpenCode, Claude Code, or Codex CLI, and switch the active agent from the toolbar selector
 - **Real-Time Sync** — Open files, active editor, and selections are automatically pushed to the agent
 - **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree (`Ctrl+Shift+I` / `Cmd+Shift+I`)
 - **Drag & Drop** — Drop files from the project tree directly into the chat
@@ -52,6 +53,8 @@ The plugin zip will be at `build/distributions/agentellij-*.zip`.
 
 Install it in IntelliJ: **Settings > Plugins > ⚙️ > Install Plugin from Disk...**
 
+> **Note:** Installing, updating, enabling, or disabling the plugin requires an IDE restart.
+
 ## Usage
 
 ### Opening the Chat
@@ -64,7 +67,7 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 
 AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** uses the JCEF-powered embedded web UI.
 
-You can switch between modes at any time using the toggle button in the tool window toolbar — no restart required.
+The tool window toolbar has an **agent selector** and a **mode toggle**. Pick an agent from the selector dropdown and click **Change** to switch the active agent (Change stays disabled until you pick a different agent). Use the mode toggle to switch between GUI and TUI instantly — no restart required; terminal-only agents such as Claude Code and Codex CLI stay in TUI.
 
 ### Keyboard Shortcuts
 
@@ -94,6 +97,8 @@ Drag files from IntelliJ's project tree and drop them onto the chat window to ad
 Use the **Mode** dropdown to set the default mode on startup, or use the **toolbar toggle button** in the tool window to switch between GUI and TUI instantly at any time. AgentellIJ validates the selected mode against the active agent, so terminal-only agents such as Claude Code and Codex CLI stay in TUI mode. The rest of the settings apply in both modes, including custom binary path and additional CLI arguments.
 
 If the selected agent CLI is missing, AgentellIJ shows an install prompt with the exact command it will run. Installation only starts after you click **Install**; you can also open settings, configure a custom binary path, or retry detection without installing anything.
+
+Each agent stores its own binary path — switching the **Agent** dropdown preserves the path entered for each agent.
 
 | Setting | Description | Default |
 |---|---|---|
@@ -133,6 +138,9 @@ com.agentellij
 │   ├── OpenCodeProfile            # OpenCode agent implementation
 │   ├── ClaudeCodeProfile          # Claude Code agent implementation
 │   ├── CodexCliProfile            # Codex CLI agent implementation
+│   ├── NodeCliResolver            # Resolves npm to an absolute path + augmented PATH
+│   ├── TerminalShellCommand       # Wraps the launch command in a login shell (TUI)
+│   ├── TuiLaunchPlanner           # Plans TUI launch and detects missing binaries
 │   ├── BackendLauncher            # Launches agent process with fallback
 │   ├── BackendProcess             # Process abstraction interface
 │   ├── DirectBackendProcess       # Direct process with piped stdout
@@ -145,6 +153,7 @@ com.agentellij
 │   └── MessageHandler             # Routes: openFile, openUrl, reloadPath, kv, model, settings
 ├── context/           # Context passing to agent
 │   ├── ProjectPathResolver        # Shared absolute/project-relative path normalization
+│   ├── ContextSelection           # Resolves multi-file project-tree selection
 │   ├── ContextSender              # Sends file paths via bridge
 │   └── DragDropHandler            # AWT drag-and-drop → context
 ├── settings/          # Plugin configuration (persistent state)
@@ -155,6 +164,8 @@ com.agentellij
 │   ├── ChatToolWindowFactory      # Mode dispatcher (GUI vs TUI)
 │   ├── GuiModeContent             # JCEF browser + backend orchestration
 │   ├── TuiModeContent             # Terminal widget wrapper for interactive CLI
+│   ├── AgentCliInstallPanel       # Missing-CLI install prompt UI
+│   ├── AgentCliInstaller          # Runs consent-based CLI install (off-thread)
 │   └── OpenFilesTracker           # Syncs open/active files to agent
 └── util/              # Shared utilities
     ├── DebouncedTask              # Coalesces rapid event bursts
