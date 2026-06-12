@@ -36,6 +36,7 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
     fun getAgentPath(agentId: String): String = when (agentId) {
         "claude" -> state.claudeAgentPath
         "codex" -> state.codexAgentPath
+        "terminal" -> ""
         else -> state.agentPath
     }
 
@@ -43,6 +44,7 @@ class AgentellIJSettings : PersistentStateComponent<AgentellIJSettings.State> {
         when (agentId) {
             "claude" -> state.claudeAgentPath = path
             "codex" -> state.codexAgentPath = path
+            "terminal" -> { /* no-op: terminal uses default shell, no binary path */ }
             else -> state.agentPath = path
         }
     }

@@ -1,6 +1,6 @@
 package com.agentellij.backend
 
-data class TuiLaunchPlan(val installed: Boolean, val command: List<String>)
+data class TuiLaunchPlan(val installed: Boolean, val command: List<String>, val usesDefaultShell: Boolean = false)
 
 object TuiLaunchPlanner {
     fun plan(
@@ -12,6 +12,10 @@ object TuiLaunchPlanner {
         discoverBinary: (String) -> String?,
         canExecute: (String) -> Boolean
     ): TuiLaunchPlan {
+        if (profile.usesDefaultShell) {
+            return TuiLaunchPlan(installed = true, command = emptyList(), usesDefaultShell = true)
+        }
+
         val settingsCandidate = settingsPath.trim()
         if (settingsCandidate.isNotEmpty() && canExecute(settingsCandidate)) {
             return launchPlan(profile, settingsCandidate, customArgs, installed = true)

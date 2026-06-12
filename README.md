@@ -67,7 +67,7 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 
 AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** uses the JCEF-powered embedded web UI.
 
-The tool window toolbar has an **agent selector** and a **mode toggle**. Pick an agent from the selector dropdown and click **Change** to switch the active agent (Change stays disabled until you pick a different agent). Use the mode toggle to switch between GUI and TUI instantly — no restart required; terminal-only agents such as Claude Code and Codex CLI stay in TUI.
+The tool window toolbar has an **agent selector** and a **mode toggle**. Pick an agent from the selector dropdown and click **Change** to switch the active agent (Change stays disabled until you pick a different agent). Use the mode toggle to switch between GUI and TUI instantly — no restart required; terminal-only agents such as Claude Code and Codex CLI stay in TUI. The Terminal agent opens the IDE's persistent interactive shell at the project root with no installation or binary needed.
 
 ### Keyboard Shortcuts
 
@@ -138,6 +138,7 @@ com.agentellij
 │   ├── OpenCodeProfile            # OpenCode agent implementation
 │   ├── ClaudeCodeProfile          # Claude Code agent implementation
 │   ├── CodexCliProfile            # Codex CLI agent implementation
+│   ├── TerminalProfile            # Native default-shell "agent" (TUI-only, no binary)
 │   ├── NodeCliResolver            # Resolves npm to an absolute path + augmented PATH
 │   ├── TerminalShellCommand       # Wraps the launch command in a login shell (TUI)
 │   ├── TuiLaunchPlanner           # Plans TUI launch and detects missing binaries

@@ -44,6 +44,7 @@ class AgentellIJConfigurable : Configurable {
                     currentPath = agentPathField?.text.orEmpty()
                 ) ?: AgentellIJSettings.getInstance().getAgentPath(selectedOption.id)
                 agentPathField?.text = nextPath
+                applyAgentPathFieldState(selectedOption.id)
             }
         }
 
@@ -100,7 +101,15 @@ class AgentellIJConfigurable : Configurable {
         agentComboBox?.selectedItem = AgentOption(profile.id, profile.displayName)
         modeComboBox?.selectedItem = modeToLabel(AgentModePolicy.normalizeModeForProfile(settings.getMode(), profile))
         agentPathField?.text = agentPathSelectionState?.currentPath().orEmpty()
+        applyAgentPathFieldState(profile.id)
         customArgsField?.text = settings.state.customArgs
+    }
+
+    private fun applyAgentPathFieldState(agentId: String) {
+        val profile = AgentModePolicy.resolveProfile(agentId, AgentProfileResolver.allProfiles())
+        val usesShell = profile.usesDefaultShell
+        if (usesShell) agentPathField?.text = ""
+        agentPathField?.isEnabled = !usesShell
     }
 
     override fun disposeUIResources() {

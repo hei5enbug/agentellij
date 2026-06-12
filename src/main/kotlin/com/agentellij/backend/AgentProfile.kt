@@ -59,6 +59,9 @@ interface AgentProfile {
      * does not use file-based state management.
      */
     val statePath: File?
+
+    /** When true, this "agent" simply opens the IDE's native default interactive shell (no binary, no launch args). */
+    val usesDefaultShell: Boolean get() = false
 }
 
 internal fun currentPlatformIsWindows(): Boolean =

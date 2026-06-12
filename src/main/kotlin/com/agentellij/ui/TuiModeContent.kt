@@ -3,6 +3,7 @@ package com.agentellij.ui
 import com.agentellij.backend.BackendLauncher
 import com.agentellij.backend.AgentProfileResolver
 import com.agentellij.backend.TerminalShellCommand
+import com.agentellij.backend.TuiLaunchPlan
 import com.agentellij.util.runQuietly
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -82,7 +83,7 @@ class TuiModeContent(
                     return@execute
                 }
 
-                showOnEdt { startTerminal(mainPanel, baseDir, plan.command) }
+                showOnEdt { startTerminal(mainPanel, baseDir, plan) }
             } catch (t: Throwable) {
                 logger.warn("Failed to prepare TUI backend", t)
                 showOnEdt {
@@ -113,12 +114,28 @@ class TuiModeContent(
         )
     }
 
-    private fun startTerminal(mainPanel: JPanel, baseDir: String, launchCommand: List<String>) {
+    private fun startTerminal(mainPanel: JPanel, baseDir: String, plan: TuiLaunchPlan) {
         val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+
+        if (plan.usesDefaultShell) {
+            val terminalWidget = try {
+                val options = ShellStartupOptions.Builder()
+                    .workingDirectory(baseDir)
+                    .build()
+                runner.startShellTerminalWidget(parentDisposable, options, true)
+            } catch (e: Exception) {
+                logger.warn("Failed to create default-shell terminal widget", e)
+                showError(mainPanel, "Failed to create terminal widget:<br/>${e.message}")
+                return
+            }
+            attachWidget(mainPanel, terminalWidget)
+            return
+        }
+
         val (terminalWidget, fallbackCommand) = try {
             val options = ShellStartupOptions.Builder()
                 .workingDirectory(baseDir)
-                .shellCommand(TerminalShellCommand.wrap(launchCommand))
+                .shellCommand(TerminalShellCommand.wrap(plan.command))
                 .build()
             runner.startShellTerminalWidget(parentDisposable, options, true) to null
         } catch (e: Exception) {
@@ -127,7 +144,7 @@ class TuiModeContent(
                 val options = ShellStartupOptions.Builder()
                     .workingDirectory(baseDir)
                     .build()
-                runner.startShellTerminalWidget(parentDisposable, options, true) to TerminalShellCommand.renderInner(launchCommand)
+                runner.startShellTerminalWidget(parentDisposable, options, true) to TerminalShellCommand.renderInner(plan.command)
             } catch (fallbackError: Exception) {
                 logger.warn("Failed to create terminal widget", fallbackError)
                 showError(mainPanel, "Failed to create terminal widget:<br/>${fallbackError.message}")
@@ -135,24 +152,7 @@ class TuiModeContent(
             }
         }
 
-        widgets[project] = terminalWidget
-        mainPanel.removeAll()
-        mainPanel.add(terminalWidget.component, BorderLayout.CENTER)
-        mainPanel.revalidate()
-        mainPanel.repaint()
-
-        // Block xterm "all motion" mouse tracking (DECSET 1003h) from reaching the
-        // TUI: BubbleTea-based TUIs interpret reported mouse moves as cursor moves,
-        // so the embedded prompt cursor follows the mouse without this filter.
-        installMouseMotionFilter(terminalWidget.component)
-
-        installTerminalKeyForwarder(terminalWidget)
-
-        Disposer.register(parentDisposable) {
-            widgets.remove(project)
-            destroyTerminalProcess(terminalWidget)
-            runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }
-        }
+        attachWidget(mainPanel, terminalWidget)
 
         if (fallbackCommand != null) {
             try {
@@ -165,6 +165,24 @@ class TuiModeContent(
                 showError(mainPanel, "Failed to start TUI command:<br/>${e.message}")
             }
         }
+    }
+
+    private fun attachWidget(mainPanel: JPanel, terminalWidget: TerminalWidget) {
+        widgets[project] = terminalWidget
+        mainPanel.removeAll()
+        mainPanel.add(terminalWidget.component, BorderLayout.CENTER)
+        mainPanel.revalidate()
+        mainPanel.repaint()
+        Disposer.register(parentDisposable) {
+            widgets.remove(project)
+            destroyTerminalProcess(terminalWidget)
+            runQuietly { (terminalWidget as? Disposable)?.let(Disposer::dispose) }
+        }
+
+        // Block xterm "all motion" mouse tracking (DECSET 1003h): a BubbleTea TUI would otherwise
+        // interpret reported mouse moves as cursor moves, dragging the embedded prompt cursor.
+        installMouseMotionFilter(terminalWidget.component)
+        installTerminalKeyForwarder(terminalWidget)
     }
 
     private fun executeCommand(widget: TerminalWidget, command: String) {

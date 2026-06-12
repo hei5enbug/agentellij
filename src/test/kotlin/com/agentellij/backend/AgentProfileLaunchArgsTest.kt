@@ -77,4 +77,9 @@ class AgentProfileLaunchArgsTest {
 
         assertEquals(listOf("claude", "--name", "", "--fallback", ""), args)
     }
+
+    @Test
+    fun `terminal profile produces no launch args`() {
+        assertEquals(emptyList<String>(), TerminalProfile().buildLaunchArgs("", "", "tui"))
+    }
 }

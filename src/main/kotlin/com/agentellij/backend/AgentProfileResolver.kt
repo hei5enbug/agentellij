@@ -15,7 +15,8 @@ object AgentProfileResolver {
     private val profiles: List<AgentProfile> = listOf(
         OpenCodeProfile(),
         ClaudeCodeProfile(),
-        CodexCliProfile()
+        CodexCliProfile(),
+        TerminalProfile()
     )
 
     /**

@@ -10,12 +10,12 @@ class AgentSwitchUiContractTest {
 
     @Test
     fun `agent select box lists opencode claude codex in order`() {
-        assertEquals(listOf("opencode", "claude", "codex"), profiles.map { it.id })
+        assertEquals(listOf("opencode", "claude", "codex", "terminal"), profiles.map { it.id })
     }
 
     @Test
     fun `agent select box shows expected display names`() {
-        assertEquals(listOf("OpenCode", "Claude Code", "Codex CLI"), profiles.map { it.displayName })
+        assertEquals(listOf("OpenCode", "Claude Code", "Codex CLI", "Terminal"), profiles.map { it.displayName })
     }
 
     @Test
@@ -25,5 +25,6 @@ class AgentSwitchUiContractTest {
         assertTrue(guiToggleEnabled.getValue("opencode"))
         assertFalse(guiToggleEnabled.getValue("claude"))
         assertFalse(guiToggleEnabled.getValue("codex"))
+        assertFalse(guiToggleEnabled.getValue("terminal"))
     }
 }

@@ -56,4 +56,13 @@ class AgentellIJSettingsTest {
         assertEquals("/custom/claude", paths["claude"])
         assertEquals("/custom/codex", paths["codex"])
     }
+
+    @Test
+    fun `terminal agent path is a no-op and never corrupts other agent paths`() {
+        val settings = AgentellIJSettings()
+        settings.setAgentPath("opencode", "/bin/opencode")
+        settings.setAgentPath("terminal", "/bin/should-be-ignored")
+        assertEquals("", settings.getAgentPath("terminal"))
+        assertEquals("/bin/opencode", settings.getAgentPath("opencode"))
+    }
 }

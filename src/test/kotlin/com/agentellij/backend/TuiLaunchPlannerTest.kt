@@ -102,4 +102,20 @@ class TuiLaunchPlannerTest {
 
         assertEquals(listOf("/custom/opencode"), plan.command)
     }
+
+    @Test
+    fun `default shell profile short-circuits to installed empty command without binary discovery`() {
+        val plan = TuiLaunchPlanner.plan(
+            profile = TerminalProfile(),
+            settingsPath = "/should/not/matter",
+            customArgs = "--ignored",
+            agentellijBin = "/env/ignored",
+            agentSpecificEnv = { error("agentSpecificEnv must not be queried for default-shell profile") },
+            discoverBinary = { error("discoverBinary must not be called for default-shell profile") },
+            canExecute = { error("canExecute must not be called for default-shell profile") }
+        )
+        assertTrue(plan.installed)
+        assertTrue(plan.usesDefaultShell)
+        assertEquals(emptyList<String>(), plan.command)
+    }
 }
