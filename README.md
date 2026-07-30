@@ -16,20 +16,22 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 
 ## Features
 
-- **Embedded Chat UI** — Agent's web interface rendered inside IntelliJ via JCEF (Chromium)
-- **TUI & GUI Modes** — Switch between terminal and browser-based UI instantly via the toolbar toggle button
-- **Multiple Agents** — Run OpenCode, Claude Code, or Codex CLI, and switch the active agent from the toolbar selector
-- **Real-Time Sync** — Open files, active editor, and selections are automatically pushed to the agent
-- **Context Shortcuts** — Add files or selected lines to the AI context from editor or project tree (`Ctrl+Shift+I` / `Cmd+Shift+I`)
-- **Drag & Drop** — Drop files from the project tree directly into the chat
-- **Background Process** — Agent runs in a hidden terminal tab; no window clutter
-- **Per-Project Sessions** — Each project gets an isolated, token-secured bridge session
-- **Configurable** — Custom binary path and CLI arguments via **Settings > Tools > AgentellIJ**
+- **Flexible Modes** — Switch between the interactive terminal and embedded web UI from the tool-window toolbar without restarting.
+- **Multiple Agents** — Work with OpenCode, Claude Code, Codex CLI, or the native Terminal agent in one tool window.
+- **Native Terminal Agent** — Open the IDE's persistent interactive shell with no installation or binary required.
+- **Toolbar Agent Selector** — Change the active agent quickly, with each agent's binary path remembered separately.
+- **Consent-Based CLI Installation** — See the exact install command before it runs, and start installation only after you choose **Install**.
+- **Real-Time Context Sync** — Open files and the active editor stay available to the agent automatically; selected lines are shared with a shortcut or context-menu action.
+- **Context Shortcuts** — Add files or selected lines to the agent's context from the editor or project tree.
+- **Drag & Drop** — Add project files to the agent's context by dropping them into the chat.
+- **Background Process** — Keep your workspace uncluttered while the agent runs in the background.
+- **Per-Project Sessions** — Keep each project's agent connection isolated.
+- **Custom Launch Arguments** — Tailor how each agent starts with additional CLI arguments.
 
 ## Prerequisites
 
 - **IntelliJ IDEA** 2025.1 or later (Community or Ultimate)
-- **JBR with JCEF** — Required for the embedded browser (default JetBrains Runtime includes it)
+- **JetBrains Runtime with an embedded browser** — Required for the embedded browser (the default JetBrains Runtime includes it)
 - **An AI coding agent** — Any terminal-based AI coding agent. For example:
   - [OpenCode](https://github.com/sst/opencode) — `npm i -g opencode-ai`
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm i -g @anthropic-ai/claude-code`
@@ -65,7 +67,7 @@ Click the **AgentellIJ** tool window on the right sidebar (or find it via **View
 2. Detect the server URL from stdout
 3. Load the web UI in the embedded browser
 
-AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** uses the JCEF-powered embedded web UI.
+AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs the agent's interactive CLI directly inside the tool window through the terminal wrapper. **GUI mode** uses the embedded web UI.
 
 The tool window toolbar has an **agent selector** and a **mode toggle**. Pick an agent from the selector dropdown and click **Change** to switch the active agent (Change stays disabled until you pick a different agent). Use the mode toggle to switch between GUI and TUI instantly — no restart required; terminal-only agents such as Claude Code and Codex CLI stay in TUI. The Terminal agent opens the IDE's persistent interactive shell at the project root with no installation or binary needed.
 
@@ -124,116 +126,13 @@ Bridge sessions are project-specific, but persistent agent state such as OpenCod
 
 ## Architecture
 
-```
-com.agentellij
-├── actions/           # IDE actions (context menu, shortcuts)
-│   ├── AddFileToContextAction     # Editor/tab → add file to context
-│   ├── AddLinesToContextAction    # Editor → add selected lines to context
-│   ├── AddDirectoryToContextAction # Project tree → add file(s)/directory
-│   └── AgentellIJActionPromoter   # Prioritizes AgentellIJ actions in menus
-├── backend/           # Agent process lifecycle & profile management
-│   ├── AgentProfile               # Interface: agent-specific behavior
-│   ├── CustomArgsParser           # Shell-like parser for additional CLI arguments
-│   ├── AgentProfileResolver       # Resolves profile from settings/env
-│   ├── OpenCodeProfile            # OpenCode agent implementation
-│   ├── ClaudeCodeProfile          # Claude Code agent implementation
-│   ├── CodexCliProfile            # Codex CLI agent implementation
-│   ├── TerminalProfile            # Native default-shell "agent" (TUI-only, no binary)
-│   ├── NodeCliResolver            # Resolves npm to an absolute path + augmented PATH
-│   ├── TerminalShellCommand       # Wraps the launch command in a login shell (TUI)
-│   ├── TuiLaunchPlanner           # Plans TUI launch and detects missing binaries
-│   ├── BackendLauncher            # Launches agent process with fallback
-│   ├── BackendProcess             # Process abstraction interface
-│   ├── DirectBackendProcess       # Direct process with piped stdout
-│   └── TerminalBackendProcess     # Terminal widget wrapper
-├── bridge/            # IDE ↔ Agent communication (HTTP + SSE)
-│   ├── IdeBridge                  # HTTP server on localhost (random port)
-│   ├── BridgeSession              # Per-project session with token auth
-│   ├── SessionInfo                # Session URL, token, and ID for clients
-│   ├── AgentStateStore            # kv/model/settings JSON state I/O
-│   └── MessageHandler             # Routes: openFile, openUrl, reloadPath, kv, model, settings
-├── context/           # Context passing to agent
-│   ├── ProjectPathResolver        # Shared absolute/project-relative path normalization
-│   ├── ContextSelection           # Resolves multi-file project-tree selection
-│   ├── ContextSender              # Sends file paths via bridge
-│   └── DragDropHandler            # AWT drag-and-drop → context
-├── settings/          # Plugin configuration (persistent state)
-│   ├── AgentellIJSettings         # State: binary path, custom args
-│   ├── AgentModePolicy            # Validates modes against agent capabilities
-│   └── AgentellIJConfigurable     # Settings UI panel
-├── ui/                # Tool window and browser
-│   ├── ChatToolWindowFactory      # Mode dispatcher (GUI vs TUI)
-│   ├── GuiModeContent             # JCEF browser + backend orchestration
-│   ├── TuiModeContent             # Terminal widget wrapper for interactive CLI
-│   ├── AgentCliInstallPanel       # Missing-CLI install prompt UI
-│   ├── AgentCliInstaller          # Runs consent-based CLI install (off-thread)
-│   └── OpenFilesTracker           # Syncs open/active files to agent
-└── util/              # Shared utilities
-    ├── DebouncedTask              # Coalesces rapid event bursts
-    └── SafeUtils                  # closeQuietly, runQuietly, binary path resolution
-```
-
-### Communication Flow
-
-```
-IntelliJ IDEA                          Agent Backend
-┌─────────────┐                    ┌──────────────┐
-│  Tool Window │◄── JCEF browser ──│   Web UI     │
-│  (right bar) │                   │  (/app)      │
-└──────┬───────┘                   └──────┬───────┘
-       │                                  │
-       ▼                                  ▼
-┌─────────────┐    HTTP + SSE     ┌──────────────┐
-│  IdeBridge   │◄────────────────►│  JS client   │
-│  (localhost) │  token-secured   │  (in JCEF)   │
-└──────┬───────┘                  └──────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────┐
-│  MessageHandler                                  │
-│  openFile · openUrl · reloadPath                 │
-│  kv/model/settings routes via AgentStateStore    │
-└──────────────────────────────────────────────────┘
-```
+See [`docs/overview.md`](docs/overview.md) for what the plugin does and where it stops, and
+[`docs/architecture.md`](docs/architecture.md) for how the code is divided.
 
 ## Development
 
-### Build
-
-```bash
-./gradlew build
-```
-
-### Run in IDE Sandbox
-
-```bash
-./gradlew runIde
-```
-
-This launches a sandboxed IntelliJ instance with the plugin pre-installed.
-
-### Run Tests
-
-```bash
-./gradlew test
-```
-
-### Verify Plugin Compatibility
-
-```bash
-./gradlew verifyPlugin
-```
-
-Runs JetBrains Plugin Verifier against recommended IDE versions.
-
-### CI
-
-GitHub Actions runs `./gradlew test`, `./gradlew build`, and `./gradlew verifyPlugin` on pull requests and pushes to `main`.
-
-### Project Requirements
-
-- JDK 21
-- Gradle 9.4 (wrapper included)
+See [`docs/development.md`](docs/development.md) for requirements, the verification commands, and the
+testing rules.
 
 ## Contributing
 
