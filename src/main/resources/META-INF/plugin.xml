@@ -2,9 +2,6 @@
     <id>com.agentellij</id>
     <name>AgentellIJ</name>
     <vendor email="kbm0598@gmail.com" url="https://github.com/hei5enbug/agentellij">AgentellIJ</vendor>
-    <description>Integrates AI coding agents (OpenCode, Claude Code, Codex, and more) into IntelliJ IDEA with JCEF-based
-        chat UI, context shortcuts, and editor synchronization.
-    </description>
 
     <resource-bundle>messages.AgentellIJBundle</resource-bundle>
 
@@ -12,19 +9,19 @@
     <depends>org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="AgentellIJ" factoryClass="com.agentellij.ui.ChatToolWindowFactory" anchor="right"
+        <toolWindow id="AgentellIJ" factoryClass="com.agentellij.platform.toolwindow.ChatToolWindowFactory" anchor="right"
                     icon="/icons/agentellij-icon.svg"/>
-        <applicationConfigurable instance="com.agentellij.settings.AgentellIJConfigurable"
+        <applicationConfigurable instance="com.agentellij.platform.config.AgentellIJConfigurable"
                                   id="com.agentellij.settings"
                                   parentId="tools"
                                   key="settings.displayName"/>
         <notificationGroup id="AgentellIJ" displayType="BALLOON"/>
-        <applicationService serviceImplementation="com.agentellij.settings.AgentellIJSettings"/>
-        <actionPromoter implementation="com.agentellij.actions.AgentellIJActionPromoter"/>
+        <applicationService serviceImplementation="com.agentellij.platform.config.AgentellIJSettings"/>
+        <actionPromoter implementation="com.agentellij.platform.action.AgentellIJActionPromoter"/>
     </extensions>
 
     <actions>
-        <action id="com.agentellij.AddDirectoryToContext" class="com.agentellij.actions.AddDirectoryToContextAction"
+        <action id="com.agentellij.AddDirectoryToContext" class="com.agentellij.platform.action.AddDirectoryToContextAction"
                 text="AgentellIJ: Add to Context">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
@@ -32,7 +29,7 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddToContext" class="com.agentellij.actions.AddFileToContextAction"
+        <action id="com.agentellij.AddToContext" class="com.agentellij.platform.action.AddFileToContextAction"
                 text="AgentellIJ: Add File to Context">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
@@ -41,7 +38,7 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
         </action>
 
-        <action id="com.agentellij.AddLinesToContext" class="com.agentellij.actions.AddLinesToContextAction"
+        <action id="com.agentellij.AddLinesToContext" class="com.agentellij.platform.action.AddLinesToContextAction"
                 text="AgentellIJ: Add Lines to Context">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
