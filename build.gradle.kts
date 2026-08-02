@@ -2,11 +2,11 @@ plugins {
     id("java")
     id("org.jetbrains.intellij.platform") version "2.13.1"
     id("org.jetbrains.kotlinx.kover") version "0.9.9"
-    kotlin("jvm") version "2.1.20"
+    kotlin("jvm") version "2.4.10"
 }
 
 group = "com.agentellij"
-version = "0.4.4"
+version = "0.4.5"
 
 val kotestVersion = "6.2.3"
 
@@ -24,6 +24,12 @@ java {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        // IntelliJ's Kotlin interfaces already provide JVM default methods. Generating
+        // compatibility bridges copies every inherited method into our plugin classes,
+        // including deprecated and experimental ToolWindowFactory methods we never use.
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
+    }
 }
 
 dependencies {
@@ -94,12 +100,18 @@ tasks {
 
     test {
         useJUnitPlatform()
+        jvmArgs("-Xshare:off")
     }
 
     prepareSandbox {
         from(rootProject.rootDir.resolve("LICENSE")) {
             into(intellijPlatform.projectName.get())
         }
+    }
+
+    buildSearchableOptions {
+        jvmArgs("-Xshare:off")
+        systemProperty("intellij.console.use.severe.log.level", "true")
     }
 }
 
