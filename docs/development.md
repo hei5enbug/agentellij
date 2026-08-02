@@ -119,6 +119,10 @@ A change to an English document is not finished until its Korean counterpart mat
 
 `README.md` is for users installing the plugin. `docs/` is for people changing it.
 
+Before writing or editing changelogs, read every file in `changelogs/`; use present-tense action
+sentences for concrete, user-relevant changes, one coherent change per `<li>`, with no trailing
+period.
+
 Unfinished work belongs in an issue, not in a document. The previous architecture document carried a
 list of known deviations that grew to twenty-five entries, most of them never closed; a list like that
 records intent without creating any pressure to act on it.
