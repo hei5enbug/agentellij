@@ -79,6 +79,23 @@ All three actions answer the same shortcut, so the one matching where the user i
 Open files and the active editor are pushed to the agent as they change, so the agent knows what the
 user is working on without being told.
 
+### Notifying when a response finishes
+
+AgentellIJ shows an IntelliJ notification when OpenCode, Claude Code or Codex finishes an agent turn.
+OpenCode's web surface reports its existing `session.idle` event. Terminal surfaces use the agents'
+supported integration points: Codex's completion notifier, Claude Code's `Stop` hook and OpenCode's
+runtime plugin event.
+
+The adapters are activated only inside an AgentellIJ terminal session. Direct TUI launches use them
+explicitly, and the native Terminal surface puts the supported-agent wrappers first on that shell's
+search path. The OpenCode wrapper also adds its plugin through inline runtime configuration. They do
+not edit any user-level agent configuration. Closing or replacing the surface invalidates its
+authenticated callback.
+
+This reports that an agent turn ended, not that every requested task succeeded. A final question,
+blocked report or error response also ends a turn. The plugin carries that lifecycle signal and does
+not inspect conversation text or take ownership of the agent's reasoning.
+
 ### Installing a missing agent
 
 When the selected agent is not installed, the tool window shows the exact command that would install

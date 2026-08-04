@@ -19,6 +19,9 @@ class ContractSpec : BehaviorSpec({
     val settingsSource = File("src/main/kotlin/com/agentellij/platform/config/AgentellIJSettings.kt").readText()
     val descriptor = File("src/main/resources/META-INF/plugin.xml").readText()
     val bundle = File("src/main/resources/messages/AgentellIJBundle.properties").readText()
+    val bridgeRoutes = File("src/main/kotlin/com/agentellij/core/bridge/BridgeRoutes.kt").readText()
+    val completionHooks = File("src/main/kotlin/com/agentellij/core/agent/AgentCompletionHooks.kt").readText()
+    val webBridge = File("src/main/resources/webui/js/core/ide-bridge.js").readText()
 
     Given("the persisted settings of an installation that already exists") {
 
@@ -104,6 +107,17 @@ class ContractSpec : BehaviorSpec({
                     bundle shouldContain "action.com.agentellij.$action.text="
                     bundle shouldContain "action.com.agentellij.$action.description="
                 }
+            }
+        }
+    }
+
+    Given("the bridge completion message shared by web and terminal adapters") {
+
+        When("the three producers and route table are read") {
+            Then("all of them keep the same wire name") {
+                bridgeRoutes shouldContain "\"agent.turnCompleted\""
+                completionHooks shouldContain "\"agent.turnCompleted\""
+                webBridge shouldContain "'agent.turnCompleted'"
             }
         }
     }

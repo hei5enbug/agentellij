@@ -76,12 +76,17 @@ object BackendLauncher {
         customArgs: String
     ): List<String> = buildLaunchCommandInternal(profile, mode, settingsPath.trim(), customArgs.trim())
 
-    fun buildTuiLaunchPlan(profile: AgentProfile, settingsPath: String, customArgs: String): TuiLaunchPlan =
+    fun buildTuiLaunchPlan(
+        profile: AgentProfile,
+        settingsPath: String,
+        customArgs: String,
+        agentellijBin: String? = System.getenv("AGENTELLIJ_BIN")
+    ): TuiLaunchPlan =
         TuiLaunchPlanner.plan(
             profile = profile,
             settingsPath = settingsPath.trim(),
             customArgs = customArgs.trim(),
-            agentellijBin = System.getenv("AGENTELLIJ_BIN"),
+            agentellijBin = agentellijBin,
             agentSpecificEnv = { System.getenv(it) },
             discoverBinary = BackendBinaryDiscovery::discoverBinary,
             canExecute = { File(it).canExecute() }

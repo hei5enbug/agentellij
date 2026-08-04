@@ -57,7 +57,7 @@ here is a change to both sides.
 |---|---|
 | Address | `/idebridge/{sessionId}/{action}?token={token}` on a random loopback port |
 | Actions | `events` for the event stream, `send` for a message |
-| Message types | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update` |
+| Message types | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update`, `agent.turnCompleted` |
 | Event envelope | `type`, `payload`, `timestamp` |
 | Reply envelope | `replyTo`, `ok`, then `error` or `payload`, and `timestamp` |
 | No reply | A message without an identifier is answered with nothing at all |
@@ -66,6 +66,27 @@ here is a change to both sides.
 
 Changing the message types means changing `core/bridge/BridgeRoutes.kt`,
 `platform/bridge/MessageHandler.kt`, and `src/main/resources/webui/js/core/ide-bridge.js`.
+The completion type is also emitted by `core/agent/AgentCompletionHooks.kt`, which renders the
+terminal adapters.
+
+## Terminal completion adapters
+
+AgentellIJ writes a fixed-size adapter set under the IDE system directory at
+`agentellij/completion`. The files contain no token, project path, conversation state or resolved
+agent binary. Per-terminal values arrive through child-process environment variables, and closing
+the mode removes the bridge session that authenticates its callback.
+
+| Agent | Completion source |
+|---|---|
+| Codex CLI | `notify` configured by the session wrapper; the supported event is `agent-turn-complete` |
+| Claude Code | An additional settings file containing a bounded `Stop` command hook |
+| OpenCode | An inline runtime plugin listening for `session.idle` |
+
+The native Terminal prepends all three supported-agent wrappers after its interactive shell starts.
+A directly selected TUI is routed through its wrapper explicitly. OpenCode receives its plugin
+through `OPENCODE_CONFIG_CONTENT`, merged with any inherited inline configuration rather than
+replacing it. The generic Terminal profile itself is not an AI agent and never sends a completion
+message.
 
 ## Line range notation
 
@@ -112,6 +133,17 @@ reordering `core/agent/AgentCatalog.kt` changes which agent a new user gets.
 | `LOCALAPPDATA`, `APPDATA`, `USERPROFILE` | Windows install locations |
 | `XDG_STATE_HOME` | Where OpenCode keeps conversation state |
 | `SHELL`, `ComSpec`, `PATH` | Which shell runs the agent, and what it can find |
+
+The following variables are written only into an AgentellIJ terminal child; they are not read as
+host configuration.
+
+| Variable | Passed to the child for |
+|---|---|
+| `AGENTELLIJ_NOTIFY_URL` | The loopback completion endpoint with its session token |
+| `AGENTELLIJ_CODEX_BIN`, `AGENTELLIJ_CLAUDE_BIN`, `AGENTELLIJ_OPENCODE_BIN` | The real binary behind a stable session wrapper |
+| `AGENTELLIJ_OPENCODE_CONFIG_CONTENT` | The merged OpenCode runtime config preserved across shell startup |
+| `OPENCODE_CONFIG_CONTENT` | The inherited inline config plus the AgentellIJ runtime plugin |
+| `PATH` | The stable supported-agent wrappers before the inherited search path |
 
 ## Known defects kept on purpose
 

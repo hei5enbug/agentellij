@@ -2,6 +2,8 @@ package com.agentellij.platform.bridge
 
 import com.agentellij.core.util.Diagnostics
 import com.agentellij.core.bridge.BridgeRoutes
+import com.agentellij.core.bridge.AgentCompletionPolicy
+import com.agentellij.core.agent.AgentCatalog
 import com.agentellij.core.bridge.LineRange
 import com.agentellij.core.bridge.OpenFileRequest
 import com.agentellij.core.state.AgentStateStore
@@ -11,6 +13,8 @@ import com.agentellij.platform.toolwindow.AgentellIJWiring
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.ide.BrowserUtil
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
@@ -23,7 +27,11 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
-class MessageHandler(mapper: ObjectMapper) : BridgeRouteHandler {
+class MessageHandler(
+    mapper: ObjectMapper,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val completionNotifier: (Project, String) -> Unit = ::showCompletionNotification
+) : BridgeRouteHandler {
     private val LOG by lazy { Logger.getInstance(MessageHandler::class.java) }
     private val diagnostics: Diagnostics by lazy { IdeLoggerDiagnostics(LOG) }
     private val stateStore = AgentStateStore(mapper, IdeLoggerDiagnostics(LOG))
@@ -48,8 +56,39 @@ class MessageHandler(mapper: ObjectMapper) : BridgeRouteHandler {
             BridgeRoutes.MODEL_UPDATE -> handleModelUpdate(session, id, payload)
             BridgeRoutes.SETTINGS_GET -> handleSettingsGet(session, id)
             BridgeRoutes.SETTINGS_UPDATE -> handleSettingsUpdate(session, id, payload)
+            BridgeRoutes.AGENT_TURN_COMPLETED -> handleAgentTurnCompleted(session, project, id, payload)
             else -> IdeBridge.replyError(session, id, BridgeRoutes.unknownTypeMessage(type))
         }
+    }
+
+    private fun handleAgentTurnCompleted(
+        session: BridgeSession,
+        project: Project?,
+        id: String?,
+        payload: JsonNode?
+    ) {
+        val profiles = AgentCatalog.allProfiles().filterNot { it.usesDefaultShell }
+        val supportedIds = profiles.mapTo(mutableSetOf()) { it.id }
+        val agentId = AgentCompletionPolicy.supportedAgentId(payload?.get("agentId")?.asText(), supportedIds)
+        if (agentId == null) {
+            IdeBridge.replyError(session, id, "Unsupported agent")
+            return
+        }
+
+        val now = nowMillis()
+        val shouldDeliver = synchronized(session.lastCompletionAt) {
+            val accepted = AgentCompletionPolicy.shouldDeliver(session.lastCompletionAt[agentId], now)
+            if (accepted) session.lastCompletionAt[agentId] = now
+            accepted
+        }
+        if (!shouldDeliver || project == null || project.isDisposed) {
+            IdeBridge.replyOk(session, id)
+            return
+        }
+
+        val displayName = profiles.first { it.id == agentId }.displayName
+        completionNotifier(project, displayName)
+        IdeBridge.replyOk(session, id)
     }
 
     private fun handleOpenFile(session: BridgeSession, project: Project?, id: String?, payload: JsonNode?) {
@@ -177,5 +216,20 @@ class MessageHandler(mapper: ObjectMapper) : BridgeRouteHandler {
 
     private fun handleSettingsUpdate(session: BridgeSession, id: String?, payload: JsonNode?) {
         IdeBridge.replyWithPayload(session, id, stateStore.updateSettings(statePath, payload))
+    }
+
+    private companion object {
+        fun showCompletionNotification(project: Project, displayName: String) {
+            ApplicationManager.getApplication().invokeLater {
+                if (!project.isDisposed) {
+                    Notification(
+                        "AgentellIJ",
+                        "$displayName response completed",
+                        "The agent is ready for your next message.",
+                        NotificationType.INFORMATION
+                    ).notify(project)
+                }
+            }
+        }
     }
 }

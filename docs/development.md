@@ -94,6 +94,11 @@ browsers, timers, executors, bridge sessions and background tasks all qualify.
 | Whoever wraps a resource tears it down | The composition root owns only the disposable that triggers it |
 | Do not hold a project reference past its session | It keeps a closed project alive |
 
+Terminal completion adapters are a bounded set of files under the IDE system directory. A terminal
+mode owns only its authenticated bridge session: its environment carries the callback and real
+binary paths, and disposal removes the session so the stable adapter files become inert. The files
+must not contain a project, token or conversation value.
+
 ## Manual checks
 
 Some behaviour needs a running IDE. Run `./gradlew runIde` and check the following before releasing a
@@ -106,6 +111,10 @@ change that touches the tool window, the surfaces, or settings.
 - Adding a file, a selection, and a tree selection to the context all reach the agent
 - The install prompt appears for a missing agent and runs nothing before Install is clicked
 - On the web surface, the interface loads and a file link opens at the right line
+- Completing one response in OpenCode web mode, each direct supported TUI, and each supported agent
+  launched by name from the native Terminal produces one IntelliJ notification
+- Closing or switching away from a terminal mode makes its former completion callback return
+  unauthorized, and agents launched outside AgentellIJ produce no AgentellIJ notification
 - Closing the IDE produces no errors
 
 ## Documentation

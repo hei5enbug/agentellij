@@ -76,11 +76,11 @@ argument.
 
 | Package | Holds |
 |---|---|
-| `agent` | The agent contract, the four agent records, the catalogue, install commands, state directory resolution |
+| `agent` | The agent contract, the four agent records, the catalogue, install commands, state directory resolution, completion-adapter rendering |
 | `launch` | Binary priority, launch command planning, terminal shell wrapping, recovery after a failed start, output capture loops, start-up attempt tracking |
 | `discovery` | Which directories to search and in what order, node tooling locations, `.npmrc` parsing |
 | `settings` | Setting shapes, mode rules, active agent selection, per-agent paths, settings panel decisions |
-| `bridge` | Request parsing, authorization, cross-origin decisions, asset paths, message envelopes, the web client address |
+| `bridge` | Request parsing, authorization, cross-origin decisions, asset paths, message envelopes, the web client address, completion validation and deduplication |
 | `state` | Shape rules and merge rules for the agent's state files, and how they are written safely |
 | `context` | Path shaping, the line range notation, shared shortcut priority |
 | `install` | The install run: output cap, time limit, cancellation |
@@ -94,10 +94,10 @@ argument.
 | `toolwindow` | The tool window entry point, the toolbar, and the wiring that joins settings to the catalogue |
 | `surface` | The terminal surface, the web surface, the missing-agent panel |
 | `action` | The three context actions and the shortcut promoter |
-| `bridge` | The HTTP server, session registry, event streams, route dispatch |
+| `bridge` | The HTTP server, session registry, event streams, route dispatch, IntelliJ completion notifications |
 | `ide` | Editor and file access, selection capture, open file tracking, drag and drop |
 | `config` | The persisted settings service and the settings panel |
-| `process` | Process handles for a directly spawned agent and for one inside a terminal widget |
+| `process` | Process handles for a directly spawned agent and for one inside a terminal widget, terminal-scoped completion adapters |
 | `env` | The real machine: environment, filesystem, path lookup, IDE logging |
 | `install` | The background install task and its notifications |
 
@@ -186,9 +186,9 @@ than the confidence it returns.
 - Settings panel components
 - Background task progress and notifications
 
-Four platform pieces are tested anyway, because each runs without a heavy fixture and each fails in a
-way the user would notice: static asset serving, bridge authentication and messaging, selection
-capture, and shortcut priority.
+Six platform pieces are tested anyway, because each runs without a heavy fixture and each fails in a
+way the user would notice: static asset serving, bridge authentication and messaging, completion
+message delivery, terminal completion runtime wiring, selection capture, and shortcut priority.
 
 Verification commands and testing rules are in `docs/development.md`, under "Verification" and
 "Testing rules".

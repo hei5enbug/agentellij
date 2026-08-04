@@ -54,6 +54,10 @@ class BridgeSessionRegistrySpec : BehaviorSpec({
             Then("it carries a token of its own") {
                 session.token shouldNotBe session.id
             }
+
+            Then("its completion deduplication state starts empty") {
+                session.lastCompletionAt shouldBe emptyMap()
+            }
         }
     }
 

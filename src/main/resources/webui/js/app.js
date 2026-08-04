@@ -7,6 +7,7 @@ import { createConfigController } from './features/config-controller.js';
 
 let api, bridge, ui;
 let sessionCtrl, configCtrl;
+const activeTurns = new Set();
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -57,7 +58,13 @@ function handleGlobalEscape(e) {
 function connectStreams() {
   api.connectEvents({
     onConnected: () => ui.showConnectionStatus('connected'),
-    onMessageDelta: (sessionId, messageId, partId, delta) => { if (sessionId !== state.currentSessionId) return; state.isStreaming = true; ui.setStreaming(true); ui.appendStreamDelta(messageId, partId, delta); },
+    onMessageDelta: (sessionId, messageId, partId, delta) => {
+      activeTurns.add(sessionId);
+      if (sessionId !== state.currentSessionId) return;
+      state.isStreaming = true;
+      ui.setStreaming(true);
+      ui.appendStreamDelta(messageId, partId, delta);
+    },
     onMessagePartUpdated: (sessionId, messageId, part) => { if (sessionId !== state.currentSessionId) return; ui.updateToolCallStatus(messageId, part?.id, part?.state || part?.status || 'running', part); },
     onMessageUpdated: (sessionId, messageId, message) => {
       if (sessionId !== state.currentSessionId || message?.role !== 'assistant') return;
@@ -77,6 +84,7 @@ function connectStreams() {
       ui.renderSessionList(state.sessions, state.currentSessionId);
     },
     onSessionDeleted: (sessionId) => {
+      activeTurns.delete(sessionId);
       state.sessions = state.sessions.filter((s) => s.id !== sessionId);
       state.messages.delete(sessionId);
       if (state.currentSessionId === sessionId) {
@@ -91,11 +99,19 @@ function connectStreams() {
       ui.renderSessionList(state.sessions, state.currentSessionId);
     },
     onSessionStatus: (sessionId, status) => {
+      if (status?.type === 'busy') activeTurns.add(sessionId);
+      else if (status?.type === 'idle') notifyCompletedTurn(sessionId);
       if (sessionId !== state.currentSessionId) return;
       if (status?.type === 'busy') { state.isStreaming = true; ui.setStreaming(true); }
       else if (status?.type === 'idle') { state.isStreaming = false; ui.setStreaming(false); ui.focusInput(); }
     },
-    onSessionIdle: (sessionId) => { if (sessionId !== state.currentSessionId) return; state.isStreaming = false; ui.setStreaming(false); ui.focusInput(); },
+    onSessionIdle: (sessionId) => {
+      notifyCompletedTurn(sessionId);
+      if (sessionId !== state.currentSessionId) return;
+      state.isStreaming = false;
+      ui.setStreaming(false);
+      ui.focusInput();
+    },
     onError: () => ui.showConnectionStatus('connecting'),
   });
 
@@ -112,6 +128,11 @@ function connectStreams() {
   ui.showConnectionStatus('connecting');
 }
 
+function notifyCompletedTurn(sessionId) {
+  if (!activeTurns.delete(sessionId)) return;
+  bridge?.agentTurnCompleted('opencode').catch(() => {});
+}
+
 async function handleSend() {
   const text = ui.getInputText().trim();
   if (!text || state.isStreaming) return;
@@ -121,6 +142,7 @@ async function handleSend() {
   ui.clearInput();
   ui.setStreaming(true);
   state.isStreaming = true;
+  activeTurns.add(state.currentSessionId);
   try {
     const parts = [{ type: 'text', text }];
     const config = {};
@@ -130,6 +152,7 @@ async function handleSend() {
     await api.sendPromptWithConfig(state.currentSessionId, parts, config);
   } catch (e) {
     ui.showError(`Failed to send message: ${e.message}`);
+    activeTurns.delete(state.currentSessionId);
     state.isStreaming = false;
     ui.setStreaming(false);
   }
@@ -138,6 +161,7 @@ async function handleSend() {
 async function handleAbort() {
   if (!state.isStreaming) return;
   try { await api.abortPrompt(state.currentSessionId); } catch (_) {}
+  activeTurns.delete(state.currentSessionId);
   state.isStreaming = false;
   ui.setStreaming(false);
 }

@@ -52,7 +52,8 @@ internal class BridgeSessionRegistry {
             val opened = BridgeSession(
                 id = UUID.randomUUID().toString(),
                 token = UUID.randomUUID().toString(),
-                sseClients = Collections.synchronizedSet(mutableSetOf())
+                sseClients = Collections.synchronizedSet(mutableSetOf()),
+                lastCompletionAt = Collections.synchronizedMap(mutableMapOf())
             )
             identities[opened.id] = opened
             if (project != null) {

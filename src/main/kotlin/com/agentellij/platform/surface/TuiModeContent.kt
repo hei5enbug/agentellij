@@ -6,8 +6,11 @@ import com.agentellij.core.launch.TuiLaunchPlan
 import com.agentellij.core.util.runQuietly
 import com.agentellij.platform.install.escapeHtml
 import com.agentellij.platform.process.BackendLauncher
+import com.agentellij.platform.process.TuiCompletionRuntime
 import com.agentellij.core.agent.AgentProfile
+import com.agentellij.core.agent.AgentCatalog
 import com.agentellij.platform.toolwindow.AgentellIJWiring
+import com.agentellij.platform.env.resolveAbsolutePath
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
@@ -93,7 +96,16 @@ class TuiModeContent(
                     return@execute
                 }
 
-                showOnEdt { startTerminal(mainPanel, baseDir, plan) }
+                val completionRuntime = createCompletionRuntime(plan)
+                if (completionRuntime != null) {
+                    try {
+                        Disposer.register(parentDisposable, completionRuntime)
+                    } catch (failure: Throwable) {
+                        completionRuntime.dispose()
+                        throw failure
+                    }
+                }
+                showOnEdt { startTerminal(mainPanel, baseDir, plan, completionRuntime) }
             } catch (t: Throwable) {
                 logger.warn("Failed to prepare TUI backend", t)
                 showOnEdt {
@@ -134,13 +146,53 @@ class TuiModeContent(
 
     private fun renderTerminalCommand(command: List<String>): String =
         TerminalShellCommand.renderInner(command, isWindows)
-    private fun startTerminal(mainPanel: JPanel, baseDir: String, plan: TuiLaunchPlan) {
+    private fun createCompletionRuntime(activePlan: TuiLaunchPlan): TuiCompletionRuntime? = try {
+        val binaries = AgentCatalog.allProfiles()
+            .asSequence()
+            .filterNot { it.usesDefaultShell }
+            .mapNotNull { candidate ->
+                val plan = if (candidate.id == profile.id) {
+                    activePlan
+                } else {
+                    BackendLauncher.buildTuiLaunchPlan(
+                        profile = candidate,
+                        settingsPath = AgentellIJWiring.binaryPathFor(candidate),
+                        customArgs = "",
+                        agentellijBin = null
+                    )
+                }
+                if (!plan.installed) return@mapNotNull null
+                val binary = plan.command.firstOrNull() ?: return@mapNotNull null
+                val absolute = resolveAbsolutePath(binary)
+                if (!File(absolute).exists()) return@mapNotNull null
+                candidate.id to absolute
+            }
+            .toMap()
+        TuiCompletionRuntime.create(
+            project = project,
+            agentBinaries = binaries,
+            inheritedPath = System.getenv("PATH"),
+            inheritedOpenCodeConfig = System.getenv("OPENCODE_CONFIG_CONTENT")
+        )
+    } catch (e: Exception) {
+        logger.warn("Failed to prepare agent completion notifications", e)
+        null
+    }
+
+    private fun startTerminal(
+        mainPanel: JPanel,
+        baseDir: String,
+        plan: TuiLaunchPlan,
+        completionRuntime: TuiCompletionRuntime?
+    ) {
         val runner = TerminalToolWindowManager.getInstance(project).terminalRunner
+        val environment = completionRuntime?.environment.orEmpty()
 
         if (plan.usesDefaultShell) {
             val terminalWidget = try {
                 val options = ShellStartupOptions.Builder()
                     .workingDirectory(baseDir)
+                    .envVariables(environment)
                     .build()
                 runner.startShellTerminalWidget(parentDisposable, options, true)
             } catch (e: Exception) {
@@ -149,13 +201,22 @@ class TuiModeContent(
                 return
             }
             attachWidget(mainPanel, terminalWidget)
+            completionRuntime?.shellActivationCommand?.let { command ->
+                try {
+                    executeCommand(terminalWidget, command)
+                } catch (e: Exception) {
+                    logger.warn("Failed to activate agent completion wrappers in the terminal shell", e)
+                }
+            }
             return
         }
 
+        val command = completionRuntime?.wrapCommand(profile.id, plan.command) ?: plan.command
         val (terminalWidget, fallbackCommand) = try {
             val options = ShellStartupOptions.Builder()
                 .workingDirectory(baseDir)
-                .shellCommand(wrapTerminalCommand(plan.command))
+                .shellCommand(wrapTerminalCommand(command))
+                .envVariables(environment)
                 .build()
             runner.startShellTerminalWidget(parentDisposable, options, true) to null
         } catch (e: Exception) {
@@ -163,8 +224,9 @@ class TuiModeContent(
             try {
                 val options = ShellStartupOptions.Builder()
                     .workingDirectory(baseDir)
+                    .envVariables(environment)
                     .build()
-                runner.startShellTerminalWidget(parentDisposable, options, true) to renderTerminalCommand(plan.command)
+                runner.startShellTerminalWidget(parentDisposable, options, true) to renderTerminalCommand(command)
             } catch (fallbackError: Exception) {
                 logger.warn("Failed to create terminal widget", fallbackError)
                 showError(mainPanel, "Failed to create terminal widget:<br/>${fallbackError.message}")

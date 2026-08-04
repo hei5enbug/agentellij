@@ -101,4 +101,8 @@ export class IdeBridgeClient {
   async reloadPath(path) {
     return this._send('reloadPath', { path });
   }
+
+  async agentTurnCompleted(agentId) {
+    return this._send('agent.turnCompleted', { agentId });
+  }
 }

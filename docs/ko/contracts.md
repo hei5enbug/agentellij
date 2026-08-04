@@ -56,7 +56,7 @@
 |---|---|
 | 주소 | 임의의 로컬 포트에서 `/idebridge/{세션}/{동작}?token={토큰}` |
 | 동작 | 이벤트 구독은 `events`, 메시지 전송은 `send` |
-| 메시지 종류 | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update` |
+| 메시지 종류 | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update`, `agent.turnCompleted` |
 | 이벤트 봉투 | `type`, `payload`, `timestamp` |
 | 응답 봉투 | `replyTo`, `ok`, 그리고 `error` 또는 `payload`, `timestamp` |
 | 응답 없음 | 식별자 없는 메시지에는 아무 응답도 보내지 않는다 |
@@ -65,6 +65,24 @@
 
 메시지 종류를 바꾸려면 `core/bridge/BridgeRoutes.kt`, `platform/bridge/MessageHandler.kt`,
 `src/main/resources/webui/js/core/ide-bridge.js`를 함께 고쳐야 합니다.
+완료 메시지는 터미널 어댑터를 만드는 `core/agent/AgentCompletionHooks.kt`에서도 보냅니다.
+
+## 터미널 완료 어댑터
+
+AgentellIJ는 IDE 시스템 폴더의 `agentellij/completion` 아래에 크기가 고정된 어댑터 파일을 씁니다. 파일에는
+토큰, 프로젝트 경로, 대화 상태, 결정된 에이전트 실행 파일이 들어가지 않습니다. 터미널마다 다른 값은 자식
+프로세스 환경변수로 전달하고, 모드를 닫으면 완료 주소를 인증하던 브리지 세션을 없앱니다.
+
+| 에이전트 | 완료 신호 출처 |
+|---|---|
+| Codex CLI | 세션 래퍼가 설정한 `notify`. 지원 이벤트는 `agent-turn-complete` |
+| Claude Code | 추가 설정 파일에 든 시간 제한 `Stop` 명령 훅 |
+| OpenCode | `session.idle`을 듣는 인라인 실행 플러그인 |
+
+Terminal 화면은 대화형 셸이 시작된 뒤 지원 에이전트 세 개의 래퍼를 검색 경로 앞에 둡니다. 직접 선택한
+TUI는 그 래퍼를 명시적으로 거칩니다. OpenCode 플러그인은 기존 인라인 설정을 덮지 않고 병합한
+`OPENCODE_CONFIG_CONTENT`로 전달합니다. Terminal 프로필 자체는 AI 에이전트가 아니며 완료 메시지를
+보내지 않습니다.
 
 ## 줄 범위 표기
 
@@ -110,6 +128,16 @@
 | `LOCALAPPDATA`, `APPDATA`, `USERPROFILE` | Windows 설치 위치 |
 | `XDG_STATE_HOME` | OpenCode가 대화 기록을 두는 곳 |
 | `SHELL`, `ComSpec`, `PATH` | 에이전트를 실행할 셸과 그 셸이 찾을 수 있는 것 |
+
+아래 변수는 호스트 설정으로 읽지 않고 AgentellIJ 터미널 자식에만 씁니다.
+
+| 변수 | 자식에 전달하는 이유 |
+|---|---|
+| `AGENTELLIJ_NOTIFY_URL` | 세션 토큰이 든 로컬 완료 주소 |
+| `AGENTELLIJ_CODEX_BIN`, `AGENTELLIJ_CLAUDE_BIN`, `AGENTELLIJ_OPENCODE_BIN` | 고정 세션 래퍼 뒤의 실제 실행 파일 |
+| `AGENTELLIJ_OPENCODE_CONFIG_CONTENT` | 셸 시작 뒤에도 보존할 병합된 OpenCode 실행 설정 |
+| `OPENCODE_CONFIG_CONTENT` | 물려받은 인라인 설정에 AgentellIJ 실행 플러그인을 더한 값 |
+| `PATH` | 물려받은 검색 경로 앞에 고정 지원 에이전트 래퍼를 두기 위해 |
 
 ## 일부러 남긴 결함
 
