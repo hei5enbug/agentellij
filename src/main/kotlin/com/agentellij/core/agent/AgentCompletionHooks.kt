@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 
 /**
  * Renders the small, session-scoped adapters that turn each supported agent's native
- * completion event into the common AgentellIJ bridge message.
+ * completion and structured-question events into common AgentellIJ bridge messages.
  *
  * The rendered files contain no IntelliJ code and are deterministic for their inputs,
  * so their quoting and configuration merging can be pinned without starting an IDE.
@@ -20,16 +20,29 @@ internal object AgentCompletionHooks {
     const val OPENCODE_RUNTIME_CONFIG_ENV = "AGENTELLIJ_OPENCODE_CONFIG_CONTENT"
 
     private const val COMPLETION_MESSAGE_TYPE = "agent.turnCompleted"
+    private const val INPUT_MESSAGE_TYPE = "agent.inputRequested"
+    private const val TURN_COMPLETED_EVENT = "turn-completed"
+    private const val INPUT_REQUESTED_EVENT = "input-requested"
 
     fun posixNotifier(): String = """#!/bin/sh
 agent_id=${'$'}1
+notification_event=${'$'}2
 case "${'$'}agent_id" in
   codex|claude) ;;
   *) exit 0 ;;
 esac
+case "${'$'}notification_event" in
+  $TURN_COMPLETED_EVENT) message_type='$COMPLETION_MESSAGE_TYPE' ;;
+  $INPUT_REQUESTED_EVENT)
+    hook_input=${'$'}(cat)
+    printf '%s' "${'$'}hook_input" | grep -Eq '"agent_id"[[:space:]]*:' && exit 0
+    message_type='$INPUT_MESSAGE_TYPE'
+    ;;
+  *) exit 0 ;;
+esac
 notify_url=${'$'}{$NOTIFY_URL_ENV:-}
 [ -n "${'$'}notify_url" ] || exit 0
-body='{"type":"$COMPLETION_MESSAGE_TYPE","payload":{"agentId":"'"${'$'}agent_id"'"}}'
+body='{"type":"'"${'$'}message_type"'","payload":{"agentId":"'"${'$'}agent_id"'"}}'
 curl --fail --silent --show-error --max-time 2 \
   --request POST \
   --header 'Content-Type: application/json' \
@@ -37,27 +50,41 @@ curl --fail --silent --show-error --max-time 2 \
   "${'$'}notify_url" >/dev/null 2>&1 || true
 """
 
-    fun windowsNotifier(): String = """param([string]${'$'}AgentId)
+    fun windowsNotifier(): String = """param([string]${'$'}AgentId, [string]${'$'}NotificationEvent)
 if (${ '$' }AgentId -notin @('codex', 'claude')) { exit 0 }
+switch (${'$'}NotificationEvent) {
+  '$TURN_COMPLETED_EVENT' { ${'$'}MessageType = '$COMPLETION_MESSAGE_TYPE' }
+  '$INPUT_REQUESTED_EVENT' {
+    try {
+      ${'$'}HookInput = [Console]::In.ReadToEnd() | ConvertFrom-Json
+      if (${'$'}null -ne ${'$'}HookInput.agent_id) { exit 0 }
+    } catch {
+      # Missing hook input must not prevent a user-input notification.
+    }
+    ${'$'}MessageType = '$INPUT_MESSAGE_TYPE'
+  }
+  default { exit 0 }
+}
 ${'$'}NotifyUrl = ${'$'}env:$NOTIFY_URL_ENV
 if ([string]::IsNullOrWhiteSpace(${'$'}NotifyUrl)) { exit 0 }
 ${'$'}Body = @{
-  type = '$COMPLETION_MESSAGE_TYPE'
+  type = ${'$'}MessageType
   payload = @{ agentId = ${'$'}AgentId }
 } | ConvertTo-Json -Compress
 try {
   Invoke-WebRequest -Uri ${'$'}NotifyUrl -Method Post -ContentType 'application/json' -Body ${'$'}Body -TimeoutSec 2 | Out-Null
 } catch {
-  # Completion notifications must never interfere with the agent.
+  # Agent notifications must never interfere with the agent.
 }
 """
 
     fun codexPosixWrapper(notifier: String): String {
-        val notifyConfig = "notify=[${tomlString(notifier)},${tomlString("codex")}]"
+        val notifyConfig = "notify=[${tomlString(notifier)},${tomlString("codex")},${tomlString(TURN_COMPLETED_EVENT)}]"
+        val questionHookConfig = codexQuestionHookConfig(posixNotifierCommand(notifier, "codex", INPUT_REQUESTED_EVENT))
         return """#!/bin/sh
 real_binary=${'$'}{$CODEX_BINARY_ENV:-}
 [ -n "${'$'}real_binary" ] || exit 127
-exec "${'$'}real_binary" --config ${posixQuote(notifyConfig)} "${'$'}@"
+exec "${'$'}real_binary" --config ${posixQuote(notifyConfig)} --config ${posixQuote(questionHookConfig)} "${'$'}@"
 """
     }
 
@@ -78,9 +105,16 @@ exec "${'$'}real_binary" "${'$'}@"
 
     fun codexWindowsWrapper(notifier: String): String {
         val notifyConfig = "notify=[" + listOf(
-            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", notifier, "codex"
+            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", notifier, "codex",
+            TURN_COMPLETED_EVENT
         ).joinToString(",") { tomlString(it) } + "]"
-        return windowsPowerShellWrapper(CODEX_BINARY_ENV, listOf("--config", notifyConfig))
+        val questionHookConfig = codexQuestionHookConfig(
+            windowsNotifierCommand(notifier, "codex", INPUT_REQUESTED_EVENT)
+        )
+        return windowsPowerShellWrapper(
+            CODEX_BINARY_ENV,
+            listOf("--config", notifyConfig, "--config", questionHookConfig)
+        )
     }
 
     fun claudeWindowsWrapper(settingsFile: String): String =
@@ -102,47 +136,78 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${windowsCommandQuote(po
     fun posixPathActivation(wrapperDirectory: String): String =
         "export PATH=${posixQuote(wrapperDirectory)}:\"${'$'}PATH\""
 
-    fun claudeSettings(notifierCommand: String, mapper: ObjectMapper): String {
+    fun claudeSettings(completionCommand: String, inputCommand: String, mapper: ObjectMapper): String {
         val root = mapper.createObjectNode()
         val hooks = root.putObject("hooks")
         val stop = hooks.putArray("Stop")
         val matcher = stop.addObject()
         matcher.putArray("hooks").addObject().apply {
             put("type", "command")
-            put("command", notifierCommand)
+            put("command", completionCommand)
+            put("timeout", 5)
+        }
+        val preToolUse = hooks.putArray("PreToolUse")
+        val inputMatcher = preToolUse.addObject().apply { put("matcher", "AskUserQuestion") }
+        inputMatcher.putArray("hooks").addObject().apply {
+            put("type", "command")
+            put("command", inputCommand)
             put("timeout", 5)
         }
         return mapper.writeValueAsString(root)
     }
 
-    fun posixNotifierCommand(notifier: String, agentId: String): String =
-        "${posixQuote(notifier)} ${posixQuote(agentId)}"
+    fun posixNotifierCommand(notifier: String, agentId: String, event: String): String =
+        "${posixQuote(notifier)} ${posixQuote(agentId)} ${posixQuote(event)}"
 
-    fun windowsNotifierCommand(notifier: String, agentId: String): String =
+    fun windowsNotifierCommand(notifier: String, agentId: String, event: String): String =
         listOf(
-            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", notifier, agentId
+            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", notifier, agentId, event
         ).joinToString(" ") { windowsCommandQuote(it) }
 
-    fun openCodePlugin(): String = """export const AgentellIJCompletionPlugin = async () => ({
-  event: async ({ event }) => {
-    if (event?.type !== "session.idle") return
-    const notifyUrl = process.env.$NOTIFY_URL_ENV
-    if (!notifyUrl) return
+    fun openCodePlugin(): String = """const notifyAgentellIJ = async (type) => {
+  const notifyUrl = process.env.$NOTIFY_URL_ENV
+  if (!notifyUrl) return
+  try {
+    await fetch(notifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, payload: { agentId: "opencode" } }),
+    })
+  } catch (_) {
+    // A notification failure must never affect the agent session.
+  }
+}
+
+const isMainSession = async (client, sessionID) => {
+  if (!sessionID) return false
+  try {
+    let response
     try {
-      await fetch(notifyUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "$COMPLETION_MESSAGE_TYPE",
-          payload: { agentId: "opencode" },
-        }),
-      })
+      response = await client.session.get({ sessionID })
     } catch (_) {
-      // A notification failure must never affect the agent session.
+      response = await client.session.get({ path: { id: sessionID } })
     }
+    const session = response?.data ?? response
+    return Boolean(session?.id) && !session.parentID
+  } catch (_) {
+    return false
+  }
+}
+
+export const AgentellIJCompletionPlugin = async ({ client }) => ({
+  event: async ({ event }) => {
+    if (event?.type !== "session.idle" && event?.type !== "question.asked") return
+    const sessionID = event?.properties?.sessionID
+    if (!await isMainSession(client, sessionID)) return
+    if (event?.type === "session.idle") await notifyAgentellIJ("$COMPLETION_MESSAGE_TYPE")
+    else if (event?.type === "question.asked") await notifyAgentellIJ("$INPUT_MESSAGE_TYPE")
   },
 })
 """
+
+    private fun codexQuestionHookConfig(command: String): String =
+        "hooks.PreToolUse=[{matcher=${tomlString("request_user_input")}," +
+            "hooks=[{type=${tomlString("command")},command=${tomlString(command)},timeout=5}]}]"
 
     /**
      * Appends the runtime plugin to OpenCode's inline configuration. OpenCode merges

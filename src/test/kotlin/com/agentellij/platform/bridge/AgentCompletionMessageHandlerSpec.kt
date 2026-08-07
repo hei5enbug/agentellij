@@ -1,6 +1,7 @@
 package com.agentellij.platform.bridge
 
 import com.agentellij.core.bridge.BridgeRoutes
+import com.agentellij.core.bridge.AgentNotificationEvent
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.intellij.openapi.project.Project
 import io.kotest.core.spec.style.BehaviorSpec
@@ -29,15 +30,15 @@ class AgentCompletionMessageHandlerSpec : BehaviorSpec({
         id = "session",
         token = "token",
         sseClients = Collections.synchronizedSet(mutableSetOf()),
-        lastCompletionAt = Collections.synchronizedMap(mutableMapOf())
+        lastNotificationAt = Collections.synchronizedMap(mutableMapOf())
     )
 
     Given("an authenticated completion message from a supported agent") {
-        val delivered = mutableListOf<String>()
+        val delivered = mutableListOf<Pair<String, AgentNotificationEvent>>()
         val handler = MessageHandler(
             mapper = mapper,
             nowMillis = { 10_000L },
-            completionNotifier = { _, displayName -> delivered += displayName }
+            agentNotifier = { _, displayName, event -> delivered += displayName to event }
         )
         val bridgeSession = session()
         val project = completionHandlerProject()
@@ -47,11 +48,11 @@ class AgentCompletionMessageHandlerSpec : BehaviorSpec({
             handler.handle(bridgeSession, project, BridgeRoutes.AGENT_TURN_COMPLETED, null, payload)
 
             Then("the supported profile's display name reaches the IDE notification adapter") {
-                delivered.shouldContainExactly("Codex CLI")
+                delivered.shouldContainExactly("Codex CLI" to AgentNotificationEvent.TURN_COMPLETED)
             }
 
             Then("the delivery time is recorded on that bridge session") {
-                bridgeSession.lastCompletionAt["codex"] shouldBe 10_000L
+                bridgeSession.lastNotificationAt["codex"] shouldBe 10_000L
             }
         }
 
@@ -59,7 +60,29 @@ class AgentCompletionMessageHandlerSpec : BehaviorSpec({
             handler.handle(bridgeSession, project, BridgeRoutes.AGENT_TURN_COMPLETED, null, payload)
 
             Then("a second balloon is not produced") {
-                delivered.shouldContainExactly("Codex CLI")
+                delivered.shouldContainExactly("Codex CLI" to AgentNotificationEvent.TURN_COMPLETED)
+            }
+        }
+    }
+
+    Given("a structured-question message from the main agent") {
+        val delivered = mutableListOf<Pair<String, AgentNotificationEvent>>()
+        val handler = MessageHandler(
+            mapper = mapper,
+            agentNotifier = { _, displayName, event -> delivered += displayName to event }
+        )
+
+        When("the question UI is about to open") {
+            handler.handle(
+                session(),
+                completionHandlerProject(),
+                BridgeRoutes.AGENT_INPUT_REQUESTED,
+                null,
+                mapper.createObjectNode().put("agentId", "claude")
+            )
+
+            Then("the input-required notification reaches the shared presenter") {
+                delivered.shouldContainExactly("Claude Code" to AgentNotificationEvent.INPUT_REQUESTED)
             }
         }
     }
@@ -68,7 +91,7 @@ class AgentCompletionMessageHandlerSpec : BehaviorSpec({
         val delivered = mutableListOf<String>()
         val handler = MessageHandler(
             mapper = mapper,
-            completionNotifier = { _, displayName -> delivered += displayName }
+            agentNotifier = { _, displayName, _ -> delivered += displayName }
         )
 
         When("the Terminal profile is presented as though it were an agent") {
@@ -94,7 +117,7 @@ class AgentCompletionMessageHandlerSpec : BehaviorSpec({
         ) { _, method, _ -> if (method.name == "isDisposed") true else null } as Project
         val handler = MessageHandler(
             mapper = mapper,
-            completionNotifier = { _, displayName -> delivered += displayName }
+            agentNotifier = { _, displayName, _ -> delivered += displayName }
         )
 
         When("the message is handled") {

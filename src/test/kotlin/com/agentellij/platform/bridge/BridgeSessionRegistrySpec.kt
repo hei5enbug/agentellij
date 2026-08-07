@@ -55,8 +55,8 @@ class BridgeSessionRegistrySpec : BehaviorSpec({
                 session.token shouldNotBe session.id
             }
 
-            Then("its completion deduplication state starts empty") {
-                session.lastCompletionAt shouldBe emptyMap()
+            Then("its agent-notification deduplication state starts empty") {
+                session.lastNotificationAt shouldBe emptyMap()
             }
         }
     }

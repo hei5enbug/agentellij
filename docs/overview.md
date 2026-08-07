@@ -79,22 +79,29 @@ All three actions answer the same shortcut, so the one matching where the user i
 Open files and the active editor are pushed to the agent as they change, so the agent knows what the
 user is working on without being told.
 
-### Notifying when a response finishes
+### Notifying when an agent needs attention
 
-AgentellIJ shows an IntelliJ notification when OpenCode, Claude Code or Codex finishes an agent turn.
-OpenCode's web surface reports its existing `session.idle` event. Terminal surfaces use the agents'
-supported integration points: Codex's completion notifier, Claude Code's `Stop` hook and OpenCode's
-runtime plugin event.
+AgentellIJ shows both an IntelliJ balloon and an operating-system popup when OpenCode, Claude Code or
+Codex finishes a main-agent turn or opens its structured question UI. Both notifications are shown
+even while IntelliJ is active. The OS popup uses the native notification implementation already
+provided by the running IntelliJ platform, so no separate notification program is required.
+
+OpenCode's web surface reports its existing `session.idle` and `question.asked` events. Terminal
+surfaces use the agents' supported integration points: Codex's completion notifier and
+`request_user_input` lifecycle hook, Claude Code's `Stop` and `AskUserQuestion` hooks, and OpenCode's
+runtime plugin events. Subagent completion events are not notification triggers.
 
 The adapters are activated only inside an AgentellIJ terminal session. Direct TUI launches use them
 explicitly, and the native Terminal surface puts the supported-agent wrappers first on that shell's
 search path. The OpenCode wrapper also adds its plugin through inline runtime configuration. They do
 not edit any user-level agent configuration. Closing or replacing the surface invalidates its
-authenticated callback.
+authenticated callback. Codex requires the user to review and trust the generated lifecycle hook
+through `/hooks`; its completion notification works independently of that one-time hook trust.
 
-This reports that an agent turn ended, not that every requested task succeeded. A final question,
-blocked report or error response also ends a turn. The plugin carries that lifecycle signal and does
-not inspect conversation text or take ownership of the agent's reasoning.
+The completion signal reports that an agent turn ended, not that every requested task succeeded. A
+blocked report or error response can also end a turn. The question signal comes from the agent's
+structured question event rather than conversation text. The plugin carries those lifecycle signals
+without taking ownership of the agent's reasoning.
 
 ### Installing a missing agent
 

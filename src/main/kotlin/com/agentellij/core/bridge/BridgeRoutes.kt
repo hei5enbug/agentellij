@@ -18,6 +18,7 @@ internal object BridgeRoutes {
     const val SETTINGS_GET = "settings.get"
     const val SETTINGS_UPDATE = "settings.update"
     const val AGENT_TURN_COMPLETED = "agent.turnCompleted"
+    const val AGENT_INPUT_REQUESTED = "agent.inputRequested"
 
     val ALL: Set<String> = setOf(
         OPEN_FILE,
@@ -29,7 +30,8 @@ internal object BridgeRoutes {
         MODEL_UPDATE,
         SETTINGS_GET,
         SETTINGS_UPDATE,
-        AGENT_TURN_COMPLETED
+        AGENT_TURN_COMPLETED,
+        AGENT_INPUT_REQUESTED
     )
 
     fun isKnown(type: String?): Boolean = type != null && type in ALL

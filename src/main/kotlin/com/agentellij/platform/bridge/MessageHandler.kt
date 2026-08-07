@@ -2,7 +2,8 @@ package com.agentellij.platform.bridge
 
 import com.agentellij.core.util.Diagnostics
 import com.agentellij.core.bridge.BridgeRoutes
-import com.agentellij.core.bridge.AgentCompletionPolicy
+import com.agentellij.core.bridge.AgentNotificationPolicy
+import com.agentellij.core.bridge.AgentNotificationEvent
 import com.agentellij.core.agent.AgentCatalog
 import com.agentellij.core.bridge.LineRange
 import com.agentellij.core.bridge.OpenFileRequest
@@ -13,8 +14,6 @@ import com.agentellij.platform.toolwindow.AgentellIJWiring
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.ide.BrowserUtil
-import com.intellij.notification.Notification
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
@@ -27,10 +26,10 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
-class MessageHandler(
+internal class MessageHandler(
     mapper: ObjectMapper,
     private val nowMillis: () -> Long = System::currentTimeMillis,
-    private val completionNotifier: (Project, String) -> Unit = ::showCompletionNotification
+    private val agentNotifier: (Project, String, AgentNotificationEvent) -> Unit = AgentNotificationPresenter::show
 ) : BridgeRouteHandler {
     private val LOG by lazy { Logger.getInstance(MessageHandler::class.java) }
     private val diagnostics: Diagnostics by lazy { IdeLoggerDiagnostics(LOG) }
@@ -56,29 +55,36 @@ class MessageHandler(
             BridgeRoutes.MODEL_UPDATE -> handleModelUpdate(session, id, payload)
             BridgeRoutes.SETTINGS_GET -> handleSettingsGet(session, id)
             BridgeRoutes.SETTINGS_UPDATE -> handleSettingsUpdate(session, id, payload)
-            BridgeRoutes.AGENT_TURN_COMPLETED -> handleAgentTurnCompleted(session, project, id, payload)
+            BridgeRoutes.AGENT_TURN_COMPLETED,
+            BridgeRoutes.AGENT_INPUT_REQUESTED -> handleAgentNotification(session, project, type, id, payload)
             else -> IdeBridge.replyError(session, id, BridgeRoutes.unknownTypeMessage(type))
         }
     }
 
-    private fun handleAgentTurnCompleted(
+    private fun handleAgentNotification(
         session: BridgeSession,
         project: Project?,
+        type: String?,
         id: String?,
         payload: JsonNode?
     ) {
+        val event = AgentNotificationEvent.fromRoute(type)
+        if (event == null) {
+            IdeBridge.replyError(session, id, BridgeRoutes.unknownTypeMessage(type))
+            return
+        }
         val profiles = AgentCatalog.allProfiles().filterNot { it.usesDefaultShell }
         val supportedIds = profiles.mapTo(mutableSetOf()) { it.id }
-        val agentId = AgentCompletionPolicy.supportedAgentId(payload?.get("agentId")?.asText(), supportedIds)
+        val agentId = AgentNotificationPolicy.supportedAgentId(payload?.get("agentId")?.asText(), supportedIds)
         if (agentId == null) {
             IdeBridge.replyError(session, id, "Unsupported agent")
             return
         }
 
         val now = nowMillis()
-        val shouldDeliver = synchronized(session.lastCompletionAt) {
-            val accepted = AgentCompletionPolicy.shouldDeliver(session.lastCompletionAt[agentId], now)
-            if (accepted) session.lastCompletionAt[agentId] = now
+        val shouldDeliver = synchronized(session.lastNotificationAt) {
+            val accepted = AgentNotificationPolicy.shouldDeliver(session.lastNotificationAt[agentId], now)
+            if (accepted) session.lastNotificationAt[agentId] = now
             accepted
         }
         if (!shouldDeliver || project == null || project.isDisposed) {
@@ -87,7 +93,7 @@ class MessageHandler(
         }
 
         val displayName = profiles.first { it.id == agentId }.displayName
-        completionNotifier(project, displayName)
+        agentNotifier(project, displayName, event)
         IdeBridge.replyOk(session, id)
     }
 
@@ -218,18 +224,4 @@ class MessageHandler(
         IdeBridge.replyWithPayload(session, id, stateStore.updateSettings(statePath, payload))
     }
 
-    private companion object {
-        fun showCompletionNotification(project: Project, displayName: String) {
-            ApplicationManager.getApplication().invokeLater {
-                if (!project.isDisposed) {
-                    Notification(
-                        "AgentellIJ",
-                        "$displayName response completed",
-                        "The agent is ready for your next message.",
-                        NotificationType.INFORMATION
-                    ).notify(project)
-                }
-            }
-        }
-    }
 }

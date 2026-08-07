@@ -112,6 +112,10 @@ function connectStreams() {
       ui.setStreaming(false);
       ui.focusInput();
     },
+    onQuestionAsked: (sessionId) => {
+      if (!isMainSession(sessionId) || !activeTurns.has(sessionId)) return;
+      bridge?.agentInputRequested('opencode').catch(() => {});
+    },
     onError: () => ui.showConnectionStatus('connecting'),
   });
 
@@ -129,8 +133,14 @@ function connectStreams() {
 }
 
 function notifyCompletedTurn(sessionId) {
+  if (!isMainSession(sessionId)) return;
   if (!activeTurns.delete(sessionId)) return;
   bridge?.agentTurnCompleted('opencode').catch(() => {});
+}
+
+function isMainSession(sessionId) {
+  const session = state.sessions.find((candidate) => candidate.id === sessionId);
+  return Boolean(session) && !session.parentID;
 }
 
 async function handleSend() {

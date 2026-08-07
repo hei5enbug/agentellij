@@ -157,6 +157,9 @@ export class OpenCodeApi {
       case 'session.idle':
         h.onSessionIdle?.(props.sessionID);
         break;
+      case 'question.asked':
+        h.onQuestionAsked?.(props.sessionID, props);
+        break;
       case 'server.heartbeat':
       case 'server.connected':
       case 'session.diff':

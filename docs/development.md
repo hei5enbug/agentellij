@@ -111,8 +111,11 @@ change that touches the tool window, the surfaces, or settings.
 - Adding a file, a selection, and a tree selection to the context all reach the agent
 - The install prompt appears for a missing agent and runs nothing before Install is clicked
 - On the web surface, the interface loads and a file link opens at the right line
-- Completing one response in OpenCode web mode, each direct supported TUI, and each supported agent
-  launched by name from the native Terminal produces one IntelliJ notification
+- Completing one main-agent response or opening its structured question UI in OpenCode web mode,
+  each direct supported TUI, and each supported agent launched by name from the native Terminal
+  produces both an IntelliJ balloon and an OS-native popup, including while IntelliJ is active
+- Trust the stable Codex `request_user_input` hook through `/hooks`, then confirm that Codex questions
+  notify without bypassing hook trust
 - Closing or switching away from a terminal mode makes its former completion callback return
   unauthorized, and agents launched outside AgentellIJ produce no AgentellIJ notification
 - Closing the IDE produces no errors

@@ -27,7 +27,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 - **Background Process** — Keep your workspace uncluttered while the agent runs in the background.
 - **Per-Project Sessions** — Keep each project's agent connection isolated.
 - **Custom Launch Arguments** — Tailor how each agent starts with additional CLI arguments.
-- **Completion Notifications** — Receive an IntelliJ notification when OpenCode, Claude Code, or Codex finishes a response in the web UI, its direct TUI, or the native Terminal surface.
+- **Agent Notifications** — Receive both an IntelliJ balloon and an OS-native popup when OpenCode, Claude Code, or Codex finishes a main-agent response or opens its question UI, even while IntelliJ is active.
 
 ## Prerequisites
 
@@ -72,7 +72,7 @@ AgentellIJ supports two tool-window modes. **TUI mode** is the default and runs 
 
 The tool window toolbar has an **agent selector** and a **mode toggle**. Pick an agent from the selector dropdown and click **Change** to switch the active agent (Change stays disabled until you pick a different agent). Use the mode toggle to switch between GUI and TUI instantly — no restart required; terminal-only agents such as Claude Code and Codex CLI stay in TUI. The Terminal agent opens the IDE's persistent interactive shell at the project root with no installation or binary needed.
 
-AgentellIJ notifies you when a supported agent finishes a response. In the native Terminal surface, normally invoking `codex`, `claude`, or `opencode` uses session-scoped adapters; no user-level agent configuration is changed, and the adapters have no authenticated callback after that AgentellIJ terminal closes. A completion notification means the agent finished its current turn—it can also be a question or a blocked/error report, not necessarily proof that every requested task succeeded.
+AgentellIJ notifies you when a supported main agent finishes a response or opens its structured question UI. It shows an IntelliJ balloon and an OS-native popup together, including while IntelliJ is active. In the native Terminal surface, normally invoking `codex`, `claude`, or `opencode` uses session-scoped adapters; no user-level agent configuration is changed, and the adapters have no authenticated callback after that AgentellIJ terminal closes. Codex asks you to review the stable question hook once through `/hooks`. A completion notification means the agent finished its current turn, not necessarily that every requested task succeeded.
 
 ### Keyboard Shortcuts
 

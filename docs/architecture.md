@@ -94,7 +94,7 @@ argument.
 | `toolwindow` | The tool window entry point, the toolbar, and the wiring that joins settings to the catalogue |
 | `surface` | The terminal surface, the web surface, the missing-agent panel |
 | `action` | The three context actions and the shortcut promoter |
-| `bridge` | The HTTP server, session registry, event streams, route dispatch, IntelliJ completion notifications |
+| `bridge` | The HTTP server, session registry, event streams, route dispatch, and IDE/OS agent notifications |
 | `ide` | Editor and file access, selection capture, open file tracking, drag and drop |
 | `config` | The persisted settings service and the settings panel |
 | `process` | Process handles for a directly spawned agent and for one inside a terminal widget, terminal-scoped completion adapters |

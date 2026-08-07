@@ -22,6 +22,8 @@ class ContractSpec : BehaviorSpec({
     val bridgeRoutes = File("src/main/kotlin/com/agentellij/core/bridge/BridgeRoutes.kt").readText()
     val completionHooks = File("src/main/kotlin/com/agentellij/core/agent/AgentCompletionHooks.kt").readText()
     val webBridge = File("src/main/resources/webui/js/core/ide-bridge.js").readText()
+    val webApp = File("src/main/resources/webui/js/app.js").readText()
+    val webApi = File("src/main/resources/webui/js/core/api.js").readText()
 
     Given("the persisted settings of an installation that already exists") {
 
@@ -111,13 +113,18 @@ class ContractSpec : BehaviorSpec({
         }
     }
 
-    Given("the bridge completion message shared by web and terminal adapters") {
+    Given("the bridge agent-notification messages shared by web and terminal adapters") {
 
         When("the three producers and route table are read") {
             Then("all of them keep the same wire name") {
                 bridgeRoutes shouldContain "\"agent.turnCompleted\""
                 completionHooks shouldContain "\"agent.turnCompleted\""
                 webBridge shouldContain "'agent.turnCompleted'"
+                bridgeRoutes shouldContain "\"agent.inputRequested\""
+                completionHooks shouldContain "\"agent.inputRequested\""
+                webBridge shouldContain "'agent.inputRequested'"
+                webApi shouldContain "case 'question.asked'"
+                webApp shouldContain "!session.parentID"
             }
         }
     }

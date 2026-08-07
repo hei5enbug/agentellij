@@ -8,7 +8,7 @@ class BridgeRoutesSpec : BehaviorSpec({
     Given("the set of message types the web client may send") {
 
         When("the route table is read") {
-            Then("it is exactly the ten agreed names") {
+            Then("it is exactly the eleven agreed names") {
                 BridgeRoutes.ALL shouldBe setOf(
                     "openFile",
                     "openUrl",
@@ -19,7 +19,8 @@ class BridgeRoutesSpec : BehaviorSpec({
                     "model.update",
                     "settings.get",
                     "settings.update",
-                    "agent.turnCompleted"
+                    "agent.turnCompleted",
+                    "agent.inputRequested"
                 )
             }
         }

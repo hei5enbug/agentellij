@@ -16,7 +16,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.StandardCopyOption
 
 /**
- * Owns the completion adapters for one terminal surface.
+ * Owns the agent-notification adapters for one terminal surface.
  *
  * The fixed-size adapters live under the IDE system directory, while the real binary
  * paths and authenticated callback live only in that terminal's environment. Disposing
@@ -70,7 +70,7 @@ internal class TuiCompletionRuntime private constructor(
                     mapper
                 )
                 if (openCodeConfig == null) {
-                    LOG.warn("OpenCode inline config is malformed; completion notifications are disabled for OpenCode")
+                    LOG.warn("OpenCode inline config is malformed; agent notifications are disabled for OpenCode")
                 }
                 val wrappers = if (openCodeConfig != null && agentBinaries.containsKey("opencode")) {
                     baseWrappers + ("opencode" to files.openCodeWrapper)
@@ -136,14 +136,19 @@ internal class TuiCompletionRuntime private constructor(
                     AgentCompletionHooks.codexPosixWrapper(notifier.toString())
                 )
             }
-            val notifierCommand = if (isWindows) {
-                AgentCompletionHooks.windowsNotifierCommand(notifier.toString(), "claude")
+            val completionCommand = if (isWindows) {
+                AgentCompletionHooks.windowsNotifierCommand(notifier.toString(), "claude", "turn-completed")
             } else {
-                AgentCompletionHooks.posixNotifierCommand(notifier.toString(), "claude")
+                AgentCompletionHooks.posixNotifierCommand(notifier.toString(), "claude", "turn-completed")
+            }
+            val inputCommand = if (isWindows) {
+                AgentCompletionHooks.windowsNotifierCommand(notifier.toString(), "claude", "input-requested")
+            } else {
+                AgentCompletionHooks.posixNotifierCommand(notifier.toString(), "claude", "input-requested")
             }
             val settings = write(
                 directory.resolve("claude-settings.json"),
-                AgentCompletionHooks.claudeSettings(notifierCommand, mapper)
+                AgentCompletionHooks.claudeSettings(completionCommand, inputCommand, mapper)
             )
             val claudeWrapper = if (isWindows) {
                 val powerShell = write(
@@ -206,7 +211,7 @@ internal class TuiCompletionRuntime private constructor(
 
         private fun writeExecutable(path: Path, content: String): Path = write(path, content).also {
             if (!it.toFile().setExecutable(true, true)) {
-                throw IllegalStateException("Could not make completion adapter executable: $it")
+                throw IllegalStateException("Could not make agent-notification adapter executable: $it")
             }
         }
 

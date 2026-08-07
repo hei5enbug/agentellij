@@ -74,7 +74,7 @@ intellijPlatform {
               <li><b>Context sharing</b> — Add the current file, selected lines, or project-tree items to your agent with shortcuts or context-menu actions.</li>
               <li><b>Live editor context</b> — Open files and the active editor stay available to the agent automatically as you work.</li>
               <li><b>Drag &amp; Drop</b> — Drop files from the project tree into chat.</li>
-              <li><b>Completion notifications</b> — Get an IntelliJ notification when OpenCode, Claude Code, or Codex finishes a response in the web UI, direct TUI, or native Terminal.</li>
+              <li><b>Agent notifications</b> — Get an IntelliJ balloon and an OS-native popup when OpenCode, Claude Code, or Codex finishes a main-agent response or asks a structured question, even while the IDE is active.</li>
             </ul>
 
             <h3>Getting Started</h3>

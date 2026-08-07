@@ -53,7 +53,7 @@ internal class BridgeSessionRegistry {
                 id = UUID.randomUUID().toString(),
                 token = UUID.randomUUID().toString(),
                 sseClients = Collections.synchronizedSet(mutableSetOf()),
-                lastCompletionAt = Collections.synchronizedMap(mutableMapOf())
+                lastNotificationAt = Collections.synchronizedMap(mutableMapOf())
             )
             identities[opened.id] = opened
             if (project != null) {

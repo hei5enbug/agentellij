@@ -41,9 +41,11 @@ class AgentCompletionHooksSpec : BehaviorSpec({
                 script shouldContain "\"/private/tmp/it'\"'\"'s-agentellij/notify\""
             }
 
-            Then("it configures only Codex's supported turn-complete notifier") {
+            Then("it configures Codex's completion notifier and structured-question hook") {
                 script shouldContain "notify=["
                 script shouldContain "\"codex\""
+                script shouldContain "request_user_input"
+                script shouldContain "input-requested"
                 script shouldContain "\"${'$'}@\""
             }
         }
@@ -57,6 +59,7 @@ class AgentCompletionHooksSpec : BehaviorSpec({
                 script shouldContain AgentCompletionHooks.CODEX_BINARY_ENV
                 script shouldContain "& ${'$'}RealBinary @Prefix @args"
                 script shouldContain "notify=["
+                script shouldContain "request_user_input"
                 script shouldContain "'--config'"
             }
         }
@@ -66,16 +69,24 @@ class AgentCompletionHooksSpec : BehaviorSpec({
 
         When("the additional settings file is rendered") {
             val json = AgentCompletionHooks.claudeSettings(
-                notifierCommand = "'/private/tmp/notify' 'claude'",
+                completionCommand = "'/private/tmp/notify' 'claude' 'turn-completed'",
+                inputCommand = "'/private/tmp/notify' 'claude' 'input-requested'",
                 mapper = mapper
             )
             val root = mapper.readTree(json)
             val hook = root["hooks"]["Stop"][0]["hooks"][0]
+            val inputMatcher = root["hooks"]["PreToolUse"][0]
 
             Then("it registers a bounded command hook on the main agent Stop event") {
                 hook["type"].asText() shouldBe "command"
-                hook["command"].asText() shouldBe "'/private/tmp/notify' 'claude'"
+                hook["command"].asText() shouldBe "'/private/tmp/notify' 'claude' 'turn-completed'"
                 hook["timeout"].asInt() shouldBe 5
+            }
+
+            Then("it reports the main agent's structured question before its UI opens") {
+                inputMatcher["matcher"].asText() shouldBe "AskUserQuestion"
+                inputMatcher["hooks"][0]["command"].asText() shouldBe
+                    "'/private/tmp/notify' 'claude' 'input-requested'"
             }
         }
     }
@@ -98,6 +109,16 @@ class AgentCompletionHooksSpec : BehaviorSpec({
 
             Then("it listens for the documented idle event") {
                 plugin shouldContain "session.idle"
+            }
+
+            Then("it listens for OpenCode's structured-question event") {
+                plugin shouldContain "question.asked"
+                plugin shouldContain "agent.inputRequested"
+            }
+
+            Then("it ignores child sessions before reporting either lifecycle event") {
+                plugin shouldContain "!session.parentID"
+                plugin shouldContain "isMainSession(client, sessionID)"
             }
 
             Then("it posts the common bridge message only when AgentellIJ supplied a URL") {
@@ -168,6 +189,8 @@ class AgentCompletionHooksSpec : BehaviorSpec({
                 script shouldContain "codex|claude"
                 script shouldContain "--max-time 2"
                 script shouldContain "|| true"
+                script shouldContain "agent.inputRequested"
+                script shouldContain "agent_id"
             }
         }
 
@@ -178,6 +201,7 @@ class AgentCompletionHooksSpec : BehaviorSpec({
                 script shouldContain "-TimeoutSec 2"
                 script shouldContain "catch"
                 script shouldContain "agent.turnCompleted"
+                script shouldContain "agent.inputRequested"
             }
         }
     }

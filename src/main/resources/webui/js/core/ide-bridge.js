@@ -105,4 +105,8 @@ export class IdeBridgeClient {
   async agentTurnCompleted(agentId) {
     return this._send('agent.turnCompleted', { agentId });
   }
+
+  async agentInputRequested(agentId) {
+    return this._send('agent.inputRequested', { agentId });
+  }
 }

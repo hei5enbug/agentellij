@@ -13,5 +13,5 @@ data class BridgeSession(
     val id: String,
     val token: String,
     val sseClients: MutableSet<HttpExchange>,
-    val lastCompletionAt: MutableMap<String, Long>
+    val lastNotificationAt: MutableMap<String, Long>
 )

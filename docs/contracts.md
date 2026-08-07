@@ -57,7 +57,7 @@ here is a change to both sides.
 |---|---|
 | Address | `/idebridge/{sessionId}/{action}?token={token}` on a random loopback port |
 | Actions | `events` for the event stream, `send` for a message |
-| Message types | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update`, `agent.turnCompleted` |
+| Message types | `openFile`, `openUrl`, `reloadPath`, `kv.get`, `kv.update`, `model.get`, `model.update`, `settings.get`, `settings.update`, `agent.turnCompleted`, `agent.inputRequested` |
 | Event envelope | `type`, `payload`, `timestamp` |
 | Reply envelope | `replyTo`, `ok`, then `error` or `payload`, and `timestamp` |
 | No reply | A message without an identifier is answered with nothing at all |
@@ -66,27 +66,31 @@ here is a change to both sides.
 
 Changing the message types means changing `core/bridge/BridgeRoutes.kt`,
 `platform/bridge/MessageHandler.kt`, and `src/main/resources/webui/js/core/ide-bridge.js`.
-The completion type is also emitted by `core/agent/AgentCompletionHooks.kt`, which renders the
-terminal adapters.
+The two agent-notification types are also emitted by `core/agent/AgentCompletionHooks.kt`, which
+renders the terminal adapters.
 
-## Terminal completion adapters
+## Terminal notification adapters
 
 AgentellIJ writes a fixed-size adapter set under the IDE system directory at
 `agentellij/completion`. The files contain no token, project path, conversation state or resolved
 agent binary. Per-terminal values arrive through child-process environment variables, and closing
 the mode removes the bridge session that authenticates its callback.
 
-| Agent | Completion source |
-|---|---|
-| Codex CLI | `notify` configured by the session wrapper; the supported event is `agent-turn-complete` |
-| Claude Code | An additional settings file containing a bounded `Stop` command hook |
-| OpenCode | An inline runtime plugin listening for `session.idle` |
+| Agent | Main-turn completion source | Structured-question source |
+|---|---|---|
+| Codex CLI | `notify` configured by the session wrapper; the supported event is `agent-turn-complete` | A `PreToolUse` lifecycle hook matching `request_user_input` |
+| Claude Code | An additional settings file containing a bounded `Stop` command hook | A `PreToolUse` hook matching `AskUserQuestion` |
+| OpenCode | An inline runtime plugin listening for `session.idle` | The same plugin listening for `question.asked` |
+
+Codex command hooks are subject to Codex's hook trust model. The stable AgentellIJ hook must be
+reviewed once with `/hooks`; AgentellIJ does not bypass trust or modify the user's global Codex
+configuration.
 
 The native Terminal prepends all three supported-agent wrappers after its interactive shell starts.
 A directly selected TUI is routed through its wrapper explicitly. OpenCode receives its plugin
 through `OPENCODE_CONFIG_CONTENT`, merged with any inherited inline configuration rather than
-replacing it. The generic Terminal profile itself is not an AI agent and never sends a completion
-message.
+replacing it. The generic Terminal profile itself is not an AI agent and never sends an
+agent-notification message.
 
 ## Line range notation
 
