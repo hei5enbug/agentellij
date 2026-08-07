@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.agentellij"
-version = "0.4.5"
+version = "0.4.6"
 
 val kotestVersion = "6.2.3"
 
