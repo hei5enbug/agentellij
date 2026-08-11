@@ -3,8 +3,8 @@
 **AI coding agents, inside IntelliJ IDEA.**
 
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/com.agentellij?label=Marketplace&logo=jetbrains&logoColor=white)](https://plugins.jetbrains.com/plugin/com.agentellij)
-[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ_IDEA-2025.1+-blue?logo=intellijidea&logoColor=white)](https://www.jetbrains.com/idea/)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.1.20-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ_IDEA-2025.1--2026.2-blue?logo=intellijidea&logoColor=white)](https://www.jetbrains.com/idea/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -31,7 +31,7 @@ Designed to work with **[OpenCode](https://github.com/sst/opencode)**, **Claude 
 
 ## Prerequisites
 
-- **IntelliJ IDEA** 2025.1 or later (Community or Ultimate)
+- **IntelliJ IDEA** 2025.1 through 2026.2 (Community or Ultimate)
 - **JetBrains Runtime with an embedded browser** — Required for the embedded browser (the default JetBrains Runtime includes it)
 - **An AI coding agent** — Any terminal-based AI coding agent. For example:
   - [OpenCode](https://github.com/sst/opencode) — `npm i -g opencode-ai`

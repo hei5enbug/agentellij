@@ -8,7 +8,7 @@ How to build, test and verify a change.
 |---|---|
 | JDK | 21 |
 | Gradle | 9.6.1, through the bundled wrapper |
-| IntelliJ IDEA | 2025.1 or later, with a JetBrains Runtime that includes the embedded browser |
+| IntelliJ IDEA | 2025.1 through 2026.2, with a JetBrains Runtime that includes the embedded browser |
 
 ## Verification
 

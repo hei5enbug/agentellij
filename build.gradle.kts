@@ -36,9 +36,10 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.6")
 
     intellijPlatform {
-        intellijIdea("2025.3.4")
+        intellijIdea("2026.2.1")
         bundledPlugin("com.intellij.java")
         bundledPlugin("org.jetbrains.plugins.terminal")
+        bundledPlugin("com.intellij.modules.jcef")
 
         pluginVerifier()
         zipSigner()
@@ -96,7 +97,7 @@ intellijPlatform {
 
 tasks {
     patchPluginXml {
-        untilBuild.set("261.*")
+        untilBuild.set("262.*")
     }
 
     test {

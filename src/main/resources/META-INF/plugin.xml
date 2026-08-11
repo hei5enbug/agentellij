@@ -6,6 +6,7 @@
     <resource-bundle>messages.AgentellIJBundle</resource-bundle>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="com.agentellij-jcef.xml">com.intellij.modules.jcef</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">

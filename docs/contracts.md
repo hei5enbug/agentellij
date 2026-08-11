@@ -48,6 +48,26 @@ would drop settings search history and any saved link to the page, and would gai
 Moving a registered class means editing `plugin.xml` in the same commit. Splitting the two leaves a
 commit where the plugin cannot load, so nothing can be verified at that point.
 
+## Embedded browser dependency
+
+The embedded browser classes under `com.intellij.ui.jcef` sat in the platform core until 2026.1. From
+2026.2 they ship as a bundled plugin, so a plugin that names none of them in its dependencies cannot
+load them at all.
+
+| Value | Must stay |
+|---|---|
+| Dependency | `com.intellij.modules.jcef`, declared optional in `plugin.xml` with `config-file="com.agentellij-jcef.xml"` |
+| Additional descriptor | `META-INF/com.agentellij-jcef.xml`, with no conditional registrations |
+| Build dependency | `bundledPlugin("com.intellij.modules.jcef")`, which resolves only on 2026.2 and later |
+
+The dependency is optional because 2025.1 and 2025.2 never declared that identifier. A required
+dependency would stop the plugin from loading there, and an absent one leaves the graphical mode
+without a browser on 2026.2. Either way the graphical mode keeps its own runtime check, so a runtime
+without a working browser still gets the notice instead of a failure.
+
+The additional descriptor stays empty because every extension must load on 2025.1 and 2025.2, where
+the dependency identifier is unavailable even though the browser classes remain in the platform.
+
 ## Bridge protocol
 
 The bundled web client under `src/main/resources/webui` is the other half of this contract. A change

@@ -18,6 +18,7 @@ class ContractSpec : BehaviorSpec({
 
     val settingsSource = File("src/main/kotlin/com/agentellij/platform/config/AgentellIJSettings.kt").readText()
     val descriptor = File("src/main/resources/META-INF/plugin.xml").readText()
+    val jcefDescriptor = File("src/main/resources/META-INF/com.agentellij-jcef.xml").readText()
     val bundle = File("src/main/resources/messages/AgentellIJBundle.properties").readText()
     val bridgeRoutes = File("src/main/kotlin/com/agentellij/core/bridge/BridgeRoutes.kt").readText()
     val completionHooks = File("src/main/kotlin/com/agentellij/core/agent/AgentCompletionHooks.kt").readText()
@@ -67,6 +68,15 @@ class ContractSpec : BehaviorSpec({
             Then("it still appears under the tools group and uses the bundle key") {
                 descriptor shouldContain "parentId=\"tools\""
                 descriptor shouldContain "key=\"settings.displayName\""
+            }
+        }
+
+        When("the embedded browser dependency is read") {
+            Then("it remains optional and points to its additional descriptor") {
+                descriptor shouldContain
+                    "<depends optional=\"true\" config-file=\"com.agentellij-jcef.xml\">" +
+                    "com.intellij.modules.jcef</depends>"
+                jcefDescriptor.trim() shouldBe "<idea-plugin/>"
             }
         }
 
