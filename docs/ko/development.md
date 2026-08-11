@@ -7,7 +7,7 @@
 | 도구 | 버전 |
 |---|---|
 | JDK | 21 |
-| Gradle | 9.4, 함께 들어 있는 래퍼로 |
+| Gradle | 9.6.1, 함께 들어 있는 래퍼로 |
 | IntelliJ IDEA | 2025.1 이상, 내장 브라우저가 포함된 JetBrains Runtime |
 
 ## 검증
